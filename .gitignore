@@ -196,3 +196,7 @@ Package.resolved
 .build/
 .swiftpm/
 repros/
+
+
+# OHOS NDK
+tools/ohos_ndk/
