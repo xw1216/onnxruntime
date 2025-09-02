@@ -259,6 +259,29 @@ def add_cross_compile_args(parser: argparse.ArgumentParser) -> None:
         help="Path to RISC-V qemu executable.",
     )
 
+def add_ohos_args(parser: argparse.ArgumentParser) -> None:
+    """Adds arguments for OpenHarmony (OHOS) cross builds (minimal CPU EP)."""
+    group = parser.add_argument_group("OpenHarmony (OHOS)")
+    group.add_argument("--ohos", action="store_true", help="Build for OpenHarmony (OHOS) target.")
+    group.add_argument(
+        "--ohos_arch",
+        default="riscv64",
+        choices=["riscv64", "aarch64", "armv7", "x86_64"],
+        help="Target architecture for OHOS (default: riscv64).",
+    )
+    group.add_argument(
+        "--ohos_ndk_root",
+        type=str,
+        default="",
+        help="Path to OHOS NDK root (must contain llvm/ and sysroot/). If empty, tries tools/ohos_ndk relative to repo root.",
+    )
+    group.add_argument(
+        "--ohos_march_flags",
+        type=str,
+        default="",
+        help="Optional override for RISC-V -march flags (e.g. rv64gc_zba_zbb). Overrides default in toolchain file.",
+    )
+
 
 def add_android_args(parser: argparse.ArgumentParser) -> None:
     """Adds arguments for Android platform builds."""
@@ -796,6 +819,7 @@ def is_cross_compiling(args: argparse.Namespace) -> bool:
             getattr(args, "arm64ec", False),
             args.rv64,  # General cross-compile arg
             args.android,
+            getattr(args, "ohos", False),
             # Check existence for macOS/Apple specific args
             getattr(args, "ios", False),
             getattr(args, "visionos", False),
@@ -840,6 +864,7 @@ def parse_arguments() -> argparse.Namespace:
     add_documentation_args(parser)
     add_cross_compile_args(parser)  # Non-Windows cross-compile args
     add_android_args(parser)
+    add_ohos_args(parser)
     add_webassembly_args(parser)
     add_dependency_args(parser)
     add_extension_args(parser)

@@ -522,6 +522,30 @@ def generate_build_tree(
             "-DRISCV_QEMU_PATH:PATH=" + args.riscv_qemu_path,
             "-DCMAKE_TOOLCHAIN_FILE=" + os.path.join(source_dir, "cmake", "riscv64.toolchain.cmake"),
         ]
+    # OpenHarmony (OHOS) minimal support
+    if getattr(args, "ohos", False):
+        add_default_definition(cmake_extra_defines, "onnxruntime_CROSS_COMPILING", "ON")
+        ohos_arch = getattr(args, "ohos_arch", "riscv64")
+        if not args.ohos_ndk_root:
+            # try repo-local default
+            candidate = os.path.join(source_dir, "tools", "ohos_ndk")
+            if os.path.isdir(candidate):
+                args.ohos_ndk_root = os.path.abspath(candidate)
+        if not os.path.isdir(args.ohos_ndk_root):
+            raise BuildError("--ohos_ndk_root is required (or tools/ohos_ndk must exist)")
+        # normalize to absolute path (relative paths would be resolved against cmake/ when configuring)
+        if not os.path.isabs(args.ohos_ndk_root):
+            args.ohos_ndk_root = os.path.abspath(os.path.join(source_dir, args.ohos_ndk_root))
+        toolchain_file = os.path.join(source_dir, "cmake", f"ohos_{ohos_arch}.toolchain.cmake")
+        if not os.path.exists(toolchain_file):
+            raise BuildError(f"Toolchain file not found for arch {ohos_arch}: {toolchain_file}")
+        cmake_args += [
+            f"-DOHOS_NDK_ROOT:PATH={args.ohos_ndk_root}",
+            f"-DCMAKE_TOOLCHAIN_FILE={toolchain_file}",
+        ]
+        # Propagate optional march override
+        if getattr(args, "ohos_march_flags", ""):
+            cmake_args += [f"-DOHOS_RISCV_MARCH_FLAGS={args.ohos_march_flags}"]
     emscripten_cmake_toolchain_file = None
     emsdk_dir = None
     if args.build_wasm:
