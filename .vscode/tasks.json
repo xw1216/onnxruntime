@@ -1,0 +1,131 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "ort-ohos-build-runtime",
+      "type": "shell",
+      "command": "python3",
+      "args": [
+        "tools/ci_build/build.py",
+        "--ohos","--ohos_arch","riscv64","--ohos_ndk_root","tools/ohos_ndk",
+        "--build_dir","build/ohos_riscv64",
+        "--config","Debug",
+        "--build","--skip_tests",
+        "--parallel","4",
+        "--cmake_extra_defines","onnxruntime_BUILD_SHARED_LIB=ON"
+      ],
+      "problemMatcher": [],
+      "group": {"kind": "build", "isDefault": true},
+      "presentation": {"reveal": "always","panel": "shared"}
+    },
+    {
+      "label": "ort-ohos-build-sample",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "-S","samples/ohos/ort_hello",
+        "-B","build/ohos_hello",
+        "-DCMAKE_TOOLCHAIN_FILE=${workspaceFolder}/cmake/ohos_riscv64.toolchain.cmake",
+        "-DORT_ROOT=${workspaceFolder}",
+        "-DCMAKE_BUILD_TYPE=Debug"
+      ],
+      "problemMatcher": [],
+      "presentation": {"reveal": "silent","panel": "shared"}
+    },
+    {
+      "label": "ort-ohos-build-sample-target",
+      "type": "shell",
+      "command": "cmake",
+      "args": ["--build","build/ohos_hello","-j","4"],
+      "dependsOn": ["ort-ohos-build-sample"],
+      "problemMatcher": [],
+      "presentation": {"reveal": "always","panel": "shared"}
+    },
+    {
+      "label": "ort-ohos-package-debug",
+      "type": "shell",
+      "command": "bash",
+      "args": ["scripts/ohos/package_debug_bundle.sh"],
+      "problemMatcher": [],
+      "dependsOn": ["ort-ohos-build-runtime","ort-ohos-build-sample-target"],
+      "presentation": {"reveal": "always","panel": "shared"}
+    },
+    {
+      "label": "ort-ohos-deploy-libs",
+      "type": "shell",
+      "command": "hdc",
+      "args": ["file","send","build/ohos_riscv64/Debug/libonnxruntime.so","/data/local/tmp/lib/libonnxruntime.so"],
+      "problemMatcher": [],
+      "presentation": {"reveal": "silent"}
+    },
+    {
+      "label": "ort-ohos-deploy-sample",
+      "type": "shell",
+      "command": "hdc",
+      "args": ["file","send","build/ohos_hello/ort_hello","/data/local/tmp/ort_hello"],
+      "problemMatcher": [],
+      "presentation": {"reveal": "silent"}
+    },
+    {
+      "label": "ort-ohos-setup-remote-dir",
+      "type": "shell",
+      "command": "hdc",
+      "args": ["shell","mkdir -p /data/local/tmp/lib"],
+      "problemMatcher": [],
+      "presentation": {"reveal": "silent"}
+    },
+    {
+      "label": "ort-ohos-port-forward",
+      "type": "shell",
+      "command": "hdc",
+      "args": ["fport","tcp:41216","tcp:41216"],
+      "problemMatcher": [],
+      "presentation": {"reveal": "silent"}
+    },
+    {
+      "label": "ort-ohos-start-gdbserver",
+      "type": "shell",
+      "command": "hdc",
+      "args": ["shell","cd /data/local/tmp && LD_LIBRARY_PATH=/data/local/tmp/lib gdbserver :41216 ./ort_hello"],
+      "isBackground": true,
+      "problemMatcher": [{
+        "pattern": [{"regexp": ".","file":1,"location":2,"message":3}],
+        "background": {"activeOnStart": true, "beginsPattern": "Listening on port", "endsPattern": "Listening on port 41216"}
+      }]
+    },
+    {
+      "label": "ort-ohos-stop-gdbserver",
+      "type": "shell",
+      "command": "hdc",
+      "args": ["shell","pkill -f gdbserver"],
+      "problemMatcher": []
+    },
+    {
+      "label": "ort-ohos-stop-forward",
+      "type": "shell",
+      "command": "hdc",
+      "args": ["fport","rm","tcp:41216","tcp:41216"],
+      "problemMatcher": []
+    },
+    {
+      "label": "ort-ohos-close-debug",
+      "dependsOrder": "sequence",
+      "dependsOn": ["ort-ohos-stop-gdbserver","ort-ohos-stop-forward"],
+      "problemMatcher": []
+    },
+    {
+      "label": "ort-ohos-full-debug-sequence",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "ort-ohos-build-runtime",
+        "ort-ohos-build-sample-target",
+        "ort-ohos-setup-remote-dir",
+        "ort-ohos-deploy-libs",
+        "ort-ohos-deploy-sample",
+        "ort-ohos-port-forward",
+        "ort-ohos-start-gdbserver"
+      ],
+      "problemMatcher": []
+    }
+  ]
+}

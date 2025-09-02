@@ -1,0 +1,58 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "(gdb) ORT OHOS Full Debug",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/ohos_hello/ort_hello",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "stopAtEntry": true,
+      "MIMode": "gdb",
+      "miDebuggerPath": "/usr/bin/gdb-multiarch",
+      "miDebuggerServerAddress": "localhost:41216",
+      "preLaunchTask": "ort-ohos-full-debug-sequence",
+      "postDebugTask": "ort-ohos-close-debug",
+      "environment": [],
+      "additionalSOLibSearchPath": "${workspaceFolder}/build/ohos_riscv64/Debug:${workspaceFolder}/build/ohos_riscv64/Debug/Release:/data/local/tmp/lib",
+      "sourceFileMap": {
+        "/data/local/tmp": "${workspaceFolder}/build/ohos_hello",
+        "${workspaceFolder}/onnxruntime": "${workspaceFolder}/onnxruntime"
+      },
+      "setupCommands": [
+        {"text": "-enable-pretty-printing","description": "Pretty printing","ignoreFailures": true},
+        {"text": "set print object on","ignoreFailures": true},
+        {"text": "set sysroot ${workspaceFolder}/tools/ohos_ndk/sysroot","ignoreFailures": false},
+        {"text": "set architecture riscv:rv64","ignoreFailures": false},
+        {"text": "set auto-solib-add on","ignoreFailures": true},
+        {"text": "directory ${workspaceFolder}/onnxruntime"}
+      ]
+    },
+    {
+      "name": "(gdb) ORT OHOS Quick Attach",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/ohos_hello/ort_hello",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "stopAtEntry": true,
+      "MIMode": "gdb",
+      "miDebuggerPath": "/usr/bin/gdb-multiarch",
+      "miDebuggerServerAddress": "localhost:41216",
+      "preLaunchTask": "ort-ohos-start-gdbserver",
+      "postDebugTask": "ort-ohos-close-debug",
+      "additionalSOLibSearchPath": "${workspaceFolder}/build/ohos_riscv64/Debug:/data/local/tmp/lib",
+      "sourceFileMap": {
+        "/data/local/tmp": "${workspaceFolder}/build/ohos_hello"
+      },
+      "setupCommands": [
+        {"text": "-enable-pretty-printing","ignoreFailures": true},
+        {"text": "set sysroot ${workspaceFolder}/tools/ohos_ndk/sysroot","ignoreFailures": false},
+        {"text": "set architecture riscv:rv64","ignoreFailures": false},
+        {"text": "set auto-solib-add on","ignoreFailures": true},
+        {"text": "directory ${workspaceFolder}/onnxruntime"}
+      ]
+    }
+  ]
+}
