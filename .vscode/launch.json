@@ -5,7 +5,7 @@
       "name": "(gdb) ORT OHOS Full Debug",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${workspaceFolder}/build/ohos_hello/ort_hello",
+  "program": "${workspaceFolder}/installed/ort_ohos_riscv64_debug/bin/ort_hello",
       "args": [],
       "cwd": "${workspaceFolder}",
       "stopAtEntry": true,
@@ -15,9 +15,11 @@
       "preLaunchTask": "ort-ohos-full-debug-sequence",
       "postDebugTask": "ort-ohos-close-debug",
       "environment": [],
-      "additionalSOLibSearchPath": "${workspaceFolder}/build/ohos_riscv64/Debug:${workspaceFolder}/build/ohos_riscv64/Debug/Release:/data/local/tmp/lib",
+      "additionalSOLibSearchPath": "${workspaceFolder}/installed/ort_ohos_riscv64_debug/lib:/data/local/tmp/ort/lib",
       "sourceFileMap": {
-        "/data/local/tmp": "${workspaceFolder}/build/ohos_hello",
+        "/data/local/tmp/ort/bin": "${workspaceFolder}/installed/ort_ohos_riscv64_debug/bin",
+        "/data/local/tmp/ort/lib": "${workspaceFolder}/installed/ort_ohos_riscv64_debug/lib",
+        "/data/local/tmp/ort": "${workspaceFolder}/installed/ort_ohos_riscv64_debug/bin",
         "${workspaceFolder}/onnxruntime": "${workspaceFolder}/onnxruntime"
       },
       "setupCommands": [
@@ -33,7 +35,7 @@
       "name": "(gdb) ORT OHOS Quick Attach",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${workspaceFolder}/build/ohos_hello/ort_hello",
+  "program": "${workspaceFolder}/installed/ort_ohos_riscv64_debug/bin/ort_hello",
       "args": [],
       "cwd": "${workspaceFolder}",
       "stopAtEntry": true,
@@ -42,9 +44,11 @@
       "miDebuggerServerAddress": "localhost:41216",
       "preLaunchTask": "ort-ohos-start-gdbserver",
       "postDebugTask": "ort-ohos-close-debug",
-      "additionalSOLibSearchPath": "${workspaceFolder}/build/ohos_riscv64/Debug:/data/local/tmp/lib",
+      "additionalSOLibSearchPath": "${workspaceFolder}/installed/ort_ohos_riscv64_debug/lib:/data/local/tmp/ort/lib",
       "sourceFileMap": {
-        "/data/local/tmp": "${workspaceFolder}/build/ohos_hello"
+        "/data/local/tmp/ort/bin": "${workspaceFolder}/installed/ort_ohos_riscv64_debug/bin",
+        "/data/local/tmp/ort/lib": "${workspaceFolder}/installed/ort_ohos_riscv64_debug/lib",
+        "/data/local/tmp/ort": "${workspaceFolder}/installed/ort_ohos_riscv64_debug/bin"
       },
       "setupCommands": [
         {"text": "-enable-pretty-printing","ignoreFailures": true},

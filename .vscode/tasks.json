@@ -10,7 +10,7 @@
         "--ohos","--ohos_arch","riscv64","--ohos_ndk_root","tools/ohos_ndk",
         "--build_dir","build/ohos_riscv64",
         "--config","Debug",
-        "--build","--skip_tests",
+        "--update","--build","--skip_tests",
         "--parallel","4",
         "--cmake_extra_defines","onnxruntime_BUILD_SHARED_LIB=ON"
       ],
@@ -27,7 +27,8 @@
         "-B","build/ohos_hello",
         "-DCMAKE_TOOLCHAIN_FILE=${workspaceFolder}/cmake/ohos_riscv64.toolchain.cmake",
         "-DORT_ROOT=${workspaceFolder}",
-        "-DCMAKE_BUILD_TYPE=Debug"
+  "-DCMAKE_BUILD_TYPE=Debug",
+  "-DORT_BUILD_DIR=${workspaceFolder}/build/ohos_riscv64/Debug"
       ],
       "problemMatcher": [],
       "presentation": {"reveal": "silent","panel": "shared"}
@@ -53,8 +54,11 @@
     {
       "label": "ort-ohos-deploy-libs",
       "type": "shell",
-      "command": "hdc",
-      "args": ["file","send","build/ohos_riscv64/Debug/libonnxruntime.so","/data/local/tmp/lib/libonnxruntime.so"],
+      "command": "bash",
+      "args": [
+        "-c",
+        "set -e; hdc file send installed/ort_ohos_riscv64_debug/lib/libonnxruntime.so /data/local/tmp/lib/libonnxruntime.so; hdc file send installed/ort_ohos_riscv64_debug/lib/libonnxruntime.so.1.22.2 /data/local/tmp/lib/libonnxruntime.so.1.22.2; hdc file send tools/ohos_ndk/llvm/lib/riscv64-linux-ohos/libc++_shared.so /data/local/tmp/lib/libc++_shared.so"
+      ],
       "problemMatcher": [],
       "presentation": {"reveal": "silent"}
     },
@@ -62,7 +66,7 @@
       "label": "ort-ohos-deploy-sample",
       "type": "shell",
       "command": "hdc",
-      "args": ["file","send","build/ohos_hello/ort_hello","/data/local/tmp/ort_hello"],
+  "args": ["file","send","installed/ort_ohos_riscv64_debug/bin/ort_hello","/data/local/tmp/ort_hello"],
       "problemMatcher": [],
       "presentation": {"reveal": "silent"}
     },
@@ -117,15 +121,50 @@
       "label": "ort-ohos-full-debug-sequence",
       "dependsOrder": "sequence",
       "dependsOn": [
-        "ort-ohos-build-runtime",
-        "ort-ohos-build-sample-target",
+        "ort-ohos-install-runtime-debug",
+        "ort-ohos-install-sample-debug",
         "ort-ohos-setup-remote-dir",
-        "ort-ohos-deploy-libs",
-        "ort-ohos-deploy-sample",
+  "ort-ohos-deploy-installed-all",
         "ort-ohos-port-forward",
         "ort-ohos-start-gdbserver"
       ],
       "problemMatcher": []
+    }
+    ,
+    {
+      "label": "ort-ohos-install-runtime-debug",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "--install", "build/ohos_riscv64/Debug",
+        "--prefix", "installed/ort_ohos_riscv64_debug"
+      ],
+      "dependsOn": ["ort-ohos-build-runtime"],
+      "problemMatcher": [],
+      "presentation": {"reveal": "always", "panel": "shared"}
+    }
+    ,
+    {
+      "label": "ort-ohos-deploy-installed-all",
+      "type": "shell",
+      "command": "bash",
+      "args": ["scripts/ohos/deploy_installed_all.sh"],
+      "dependsOn": ["ort-ohos-install-runtime-debug","ort-ohos-install-sample-debug"],
+      "problemMatcher": [],
+      "presentation": {"reveal": "always","panel": "shared"}
+    }
+    ,
+    {
+      "label": "ort-ohos-install-sample-debug",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "--install", "build/ohos_hello",
+        "--prefix", "installed/ort_ohos_riscv64_debug"
+      ],
+      "dependsOn": ["ort-ohos-build-sample-target"],
+      "problemMatcher": [],
+      "presentation": {"reveal": "always", "panel": "shared"}
     }
   ]
 }

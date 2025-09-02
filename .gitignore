@@ -199,3 +199,5 @@ repros/
 
 # OHOS NDK
 tools/ohos_ndk/
+
+installed/
