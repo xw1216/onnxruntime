@@ -1,6 +1,7 @@
 {
   "version": "2.0.0",
   "tasks": [
+    // 1. Build ONNX Runtime (Debug, shared lib)
     {
       "label": "ort-ohos-build-runtime",
       "type": "shell",
@@ -10,100 +11,132 @@
         "--ohos","--ohos_arch","riscv64","--ohos_ndk_root","tools/ohos_ndk",
         "--build_dir","build/ohos_riscv64",
         "--config","Debug",
-        "--update","--build","--skip_tests",
-        "--parallel","4",
+        "--update","--build",
+        "--parallel","9",
         "--cmake_extra_defines","onnxruntime_BUILD_SHARED_LIB=ON"
       ],
       "problemMatcher": [],
       "group": {"kind": "build", "isDefault": true},
       "presentation": {"reveal": "always","panel": "shared"}
     },
+    // 2. Install runtime to installed/ prefix
     {
-      "label": "ort-ohos-build-sample",
+      "label": "ort-ohos-install-runtime-debug",
+      "type": "shell",
+      "command": "cmake",
+      "args": ["--install","build/ohos_riscv64/Debug","--prefix","installed/ort_ohos_riscv64_debug"],
+      "dependsOn": ["ort-ohos-build-runtime"],
+      "problemMatcher": [],
+      "presentation": {"reveal": "always","panel":"shared"}
+    },
+    // 3. Configure sample models project (depends on runtime build for headers/libs)
+    {
+      "label": "ort-ohos-configure-models",
       "type": "shell",
       "command": "cmake",
       "args": [
-        "-S","samples/ohos/ort_hello",
-        "-B","build/ohos_hello",
+        "-S","samples/ohos/ort_models",
+        "-B","build/ohos_models",
         "-DCMAKE_TOOLCHAIN_FILE=${workspaceFolder}/cmake/ohos_riscv64.toolchain.cmake",
         "-DORT_ROOT=${workspaceFolder}",
-  "-DCMAKE_BUILD_TYPE=Debug",
-  "-DORT_BUILD_DIR=${workspaceFolder}/build/ohos_riscv64/Debug"
+        "-DCMAKE_BUILD_TYPE=Debug",
+        "-DORT_BUILD_DIR=${workspaceFolder}/build/ohos_riscv64/Debug"
       ],
+      "dependsOn": ["ort-ohos-build-runtime"],
       "problemMatcher": [],
-      "presentation": {"reveal": "silent","panel": "shared"}
+      "presentation": {"reveal":"silent","panel":"shared"}
     },
+    // 4. Build sample models binary
     {
-      "label": "ort-ohos-build-sample-target",
+      "label": "ort-ohos-build-models",
       "type": "shell",
       "command": "cmake",
-      "args": ["--build","build/ohos_hello","-j","4"],
-      "dependsOn": ["ort-ohos-build-sample"],
+      "args": ["--build","build/ohos_models","-j","4"],
+      "dependsOn": ["ort-ohos-configure-models"],
       "problemMatcher": [],
-      "presentation": {"reveal": "always","panel": "shared"}
+      "presentation": {"reveal":"always","panel":"shared"}
     },
+    // 5. Install models binary & models into same prefix
     {
-      "label": "ort-ohos-package-debug",
+      "label": "ort-ohos-install-models-debug",
+      "type": "shell",
+      "command": "cmake",
+      "args": ["--install","build/ohos_models","--prefix","installed/ort_ohos_riscv64_debug"],
+      "dependsOn": ["ort-ohos-build-models"],
+      "problemMatcher": [],
+      "presentation": {"reveal":"always","panel":"shared"}
+    },
+    // Convenience meta task: build+install everything
+    {
+      "label": "ort-ohos-install-all-debug",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "ort-ohos-install-runtime-debug",
+        "ort-ohos-install-models-debug"
+      ]
+    },
+    // 6. Copy test executables & testdata into install prefix (so they get deployed together)
+    {
+      "label": "ort-ohos-install-tests-into-prefix",
       "type": "shell",
       "command": "bash",
-      "args": ["scripts/ohos/package_debug_bundle.sh"],
+      "args": ["scripts/ohos/install_tests_into_prefix.sh"],
+      "dependsOn": ["ort-ohos-install-all-debug"],
       "problemMatcher": [],
-      "dependsOn": ["ort-ohos-build-runtime","ort-ohos-build-sample-target"],
-      "presentation": {"reveal": "always","panel": "shared"}
+      "presentation": {"reveal":"silent","panel":"shared"}
     },
+    // 7. Deploy installed tree to device (tar sync)
     {
-      "label": "ort-ohos-deploy-libs",
+      "label": "ort-ohos-deploy-installed-all",
       "type": "shell",
       "command": "bash",
-      "args": [
-        "-c",
-        "set -e; hdc file send installed/ort_ohos_riscv64_debug/lib/libonnxruntime.so /data/local/tmp/lib/libonnxruntime.so; hdc file send installed/ort_ohos_riscv64_debug/lib/libonnxruntime.so.1.22.2 /data/local/tmp/lib/libonnxruntime.so.1.22.2; hdc file send tools/ohos_ndk/llvm/lib/riscv64-linux-ohos/libc++_shared.so /data/local/tmp/lib/libc++_shared.so"
-      ],
+      "args": ["scripts/ohos/deploy_installed_all.sh"],
+      "dependsOn": ["ort-ohos-install-tests-into-prefix"],
       "problemMatcher": [],
-      "presentation": {"reveal": "silent"}
+      "presentation": {"reveal":"always","panel":"shared"}
     },
-    {
-      "label": "ort-ohos-deploy-sample",
-      "type": "shell",
-      "command": "hdc",
-  "args": ["file","send","installed/ort_ohos_riscv64_debug/bin/ort_hello","/data/local/tmp/ort_hello"],
-      "problemMatcher": [],
-      "presentation": {"reveal": "silent"}
-    },
-    {
-      "label": "ort-ohos-setup-remote-dir",
-      "type": "shell",
-      "command": "hdc",
-      "args": ["shell","mkdir -p /data/local/tmp/lib"],
-      "problemMatcher": [],
-      "presentation": {"reveal": "silent"}
-    },
+    // 8. Port forward for gdbserver
     {
       "label": "ort-ohos-port-forward",
       "type": "shell",
       "command": "hdc",
       "args": ["fport","tcp:41216","tcp:41216"],
       "problemMatcher": [],
-      "presentation": {"reveal": "silent"}
+      "presentation": {"reveal":"silent"}
     },
+  // 9. Stop any stale gdbserver
     {
-      "label": "ort-ohos-start-gdbserver",
+      "label": "ort-ohos-stop-gdbserver",
       "type": "shell",
       "command": "hdc",
-      "args": ["shell","cd /data/local/tmp && LD_LIBRARY_PATH=/data/local/tmp/lib gdbserver :41216 ./ort_hello"],
+      "args": ["shell","pkill -f gdbserver || true"],
+      "problemMatcher": []
+    },
+  // 10. Start gdbserver with environment (LD_LIBRARY_PATH retained for safety)
+    {
+      "label": "ort-ohos-start-gdbserver-models",
+      "type": "shell",
+      "command": "hdc",
+      "args": ["shell","cd /data/local/tmp/ort/bin && LD_LIBRARY_PATH=/data/local/tmp/ort/lib /data/local/tmp/gdbserver :41216 ./ort_models"],
       "isBackground": true,
       "problemMatcher": [{
         "pattern": [{"regexp": ".","file":1,"location":2,"message":3}],
         "background": {"activeOnStart": true, "beginsPattern": "Listening on port", "endsPattern": "Listening on port 41216"}
       }]
     },
+  // 11. Full sequence for one-click debug
     {
-      "label": "ort-ohos-stop-gdbserver",
-      "type": "shell",
-      "command": "hdc",
-      "args": ["shell","pkill -f gdbserver"],
-      "problemMatcher": []
+      "label": "ort-ohos-full-debug-sequence",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "ort-ohos-install-all-debug",
+        "ort-ohos-install-tests-into-prefix",
+        "ort-ohos-deploy-installed-all",
+        "ort-ohos-port-forward",
+        "ort-ohos-start-gdbserver-models"
+      ]
     },
+  // 12. Close debug (cleanup)
     {
       "label": "ort-ohos-stop-forward",
       "type": "shell",
@@ -117,54 +150,73 @@
       "dependsOn": ["ort-ohos-stop-gdbserver","ort-ohos-stop-forward"],
       "problemMatcher": []
     },
+  // 13. Clean helper
     {
-      "label": "ort-ohos-full-debug-sequence",
-      "dependsOrder": "sequence",
-      "dependsOn": [
-        "ort-ohos-install-runtime-debug",
-        "ort-ohos-install-sample-debug",
-        "ort-ohos-setup-remote-dir",
-  "ort-ohos-deploy-installed-all",
-        "ort-ohos-port-forward",
-        "ort-ohos-start-gdbserver"
-      ],
-      "problemMatcher": []
-    }
-    ,
-    {
-      "label": "ort-ohos-install-runtime-debug",
-      "type": "shell",
-      "command": "cmake",
-      "args": [
-        "--install", "build/ohos_riscv64/Debug",
-        "--prefix", "installed/ort_ohos_riscv64_debug"
-      ],
-      "dependsOn": ["ort-ohos-build-runtime"],
-      "problemMatcher": [],
-      "presentation": {"reveal": "always", "panel": "shared"}
-    }
-    ,
-    {
-      "label": "ort-ohos-deploy-installed-all",
+      "label": "ort-ohos-clean",
       "type": "shell",
       "command": "bash",
-      "args": ["scripts/ohos/deploy_installed_all.sh"],
-      "dependsOn": ["ort-ohos-install-runtime-debug","ort-ohos-install-sample-debug"],
-      "problemMatcher": [],
-      "presentation": {"reveal": "always","panel": "shared"}
-    }
-    ,
+      "args": ["-c","rm -rf build/ohos_models build/ohos_riscv64 installed/ort_ohos_riscv64_debug build/ort_sync_stage build/ort_sync_stage.tar.gz"],
+      "problemMatcher": []
+    },
+    // onnxruntime test
     {
-      "label": "ort-ohos-install-sample-debug",
+      "label": "ort-ohos-start-gdbserver-test-all",
       "type": "shell",
-      "command": "cmake",
-      "args": [
-        "--install", "build/ohos_hello",
-        "--prefix", "installed/ort_ohos_riscv64_debug"
-      ],
-      "dependsOn": ["ort-ohos-build-sample-target"],
-      "problemMatcher": [],
-      "presentation": {"reveal": "always", "panel": "shared"}
+      "command": "hdc",
+      "args": ["shell","cd /data/local/tmp/ort && LD_LIBRARY_PATH=/data/local/tmp/ort/lib /data/local/tmp/gdbserver :41216 ./bin/onnxruntime_test_all"],
+      "isBackground": true,
+      "problemMatcher": [{
+        "pattern": [{"regexp": ".","file":1,"location":2,"message":3}],
+        "background": {"activeOnStart": true, "beginsPattern": "Listening on port", "endsPattern": "Listening on port 41216"}
+      }]
+    },
+    // Quick sequence (models): just ensure port forward + stop any stale gdbserver + start
+    {
+      "label": "ort-ohos-quick-start-models",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "ort-ohos-port-forward",
+        "ort-ohos-start-gdbserver-models"
+      ]
+    },
+    // Quick sequence (test all)
+    {
+      "label": "ort-ohos-quick-start-test-all",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "ort-ohos-port-forward",
+        "ort-ohos-start-gdbserver-test-all"
+      ]
+    },
+        {
+      "label": "ort-ohos-quick-start-test-fail",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "ort-ohos-port-forward",
+        "ort-ohos-start-gdbserver-test-fail"
+      ]
+    },
+    {
+      "label": "ort-ohos-start-gdbserver-test-fail",
+      "type": "shell",
+      "command": "hdc",
+      "args": ["shell","cd /data/local/tmp/ort && ORT_DUMP_ACTUAL=1 LD_LIBRARY_PATH=/data/local/tmp/ort/lib /data/local/tmp/gdbserver :41216 ./bin/onnxruntime_test_all --gtest_filter=Random.MultinomialDefaultDType"],
+      "isBackground": true,
+      "problemMatcher": [{
+        "pattern": [{"regexp": ".","file":1,"location":2,"message":3}],
+        "background": {"activeOnStart": true, "beginsPattern": "Listening on port", "endsPattern": "Listening on port 41216"}
+      }]
+    },
+    {
+      "label": "ort-ohos-full-debug-test-all",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "ort-ohos-install-all-debug",
+        "ort-ohos-install-tests-into-prefix",
+        "ort-ohos-deploy-installed-all",
+        "ort-ohos-port-forward",
+        "ort-ohos-start-gdbserver-test-all"
+      ]
     }
   ]
 }

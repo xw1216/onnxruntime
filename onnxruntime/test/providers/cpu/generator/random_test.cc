@@ -258,6 +258,8 @@ TEST(Random, MultinomialGoodCase) {
   const std::vector<int64_t> expected_output{2, 0, 0, 2, 2, 2, 0, 2, 2, 1, 1, 2, 1, 1, 1, 1, 2, 1, 2, 0};
 #elif defined(__MACH__) || defined(__ANDROID__) || defined(__FreeBSD__) || defined(__wasm__) || (defined(_AIX) && defined(__clang__))
   const std::vector<int64_t> expected_output{1, 1, 2, 2, 0, 2, 2, 2, 0, 2, 1, 1, 2, 0, 2, 2, 0, 2, 1, 1};
+#elif defined(__OHOS__)
+  const std::vector<int64_t> expected_output{1, 1, 2, 2, 0, 2, 2, 2, 0, 2, 1, 1, 2, 0, 2, 2, 0, 2, 1, 1};
 #else
   const std::vector<int64_t> expected_output{2, 0, 0, 1, 0, 1, 2, 0, 1, 0, 0, 1, 1, 0, 1, 0, 2, 0, 2, 0};
 #endif
@@ -295,6 +297,9 @@ TEST(Random, MultinomialDefaultDType) {
   const std::vector<int32_t> expected_output_1{2, 0, 0, 2, 2, 2, 0, 2, 2, 1, 1, 2, 1, 1, 1, 1, 2, 1, 2, 0};
   const std::vector<int32_t> expected_output_2{0, 0, 1, 0, 2, 2, 2, 0, 2, 1, 2, 1, 0, 2, 0, 2, 2, 1, 2, 1};
 #elif defined(__MACH__) || defined(__ANDROID__) || defined(__FreeBSD__) || defined(__wasm__) || (defined(_AIX) && defined(__clang__))
+  const std::vector<int32_t> expected_output_1{1, 1, 2, 2, 0, 2, 2, 2, 0, 2, 1, 1, 2, 0, 2, 2, 0, 2, 1, 1};
+  const std::vector<int32_t> expected_output_2{1, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 2, 0, 1, 1, 0, 2, 2, 2, 1};
+#elif defined(__OHOS__)
   const std::vector<int32_t> expected_output_1{1, 1, 2, 2, 0, 2, 2, 2, 0, 2, 1, 1, 2, 0, 2, 2, 0, 2, 1, 1};
   const std::vector<int32_t> expected_output_2{1, 0, 1, 1, 1, 1, 0, 0, 1, 1, 0, 2, 0, 1, 1, 0, 2, 2, 2, 1};
 #else

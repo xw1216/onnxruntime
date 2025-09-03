@@ -546,6 +546,7 @@ def generate_build_tree(
         # Propagate optional march override
         if getattr(args, "ohos_march_flags", ""):
             cmake_args += [f"-DOHOS_RISCV_MARCH_FLAGS={args.ohos_march_flags}"]
+
     emscripten_cmake_toolchain_file = None
     emsdk_dir = None
     if args.build_wasm:
