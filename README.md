@@ -34,6 +34,22 @@
 
 This project is tested with [BrowserStack](https://www.browserstack.com/home).
 
+## OHOS (riscv64) Port (Experimental)
+
+An experimental riscv64 OHOS port with build, deployment, sample (ResNet18 + YOLO) and test integration is available in this branch.
+
+Documents:
+* Porting summary (Chinese): [docs/ohos/port_ohos_riscv64.md](docs/ohos/port_ohos_riscv64.md)
+* Build / Deploy / Usage guide (Chinese): [docs/ohos/build_deploy_usage.md](docs/ohos/build_deploy_usage.md)
+
+The port adds:
+* Cross compilation for riscv64 using ohos ndk toolchain
+* Convinient shell scripts for build / install / deploy
+* Sample app with image classification + object detection
+* Unified `assets/` resource layout and deployment scripts
+* VSCode tasks & launch profiles for one‑click build / deploy / remote gdb
+
+Status: functional (inference + tests) on OHOS riscv64 device
 ## Third-party Pipeline Status
 
 |System|Inference|Training|
