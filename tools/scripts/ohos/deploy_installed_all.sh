@@ -52,7 +52,7 @@ if [ "$INCLUDE_MODE" = "only-bin-lib" ]; then
   INCLUDE_ITEMS=(bin lib)
 else
   # enumerate top-level entries to keep ordering stable
-  for item in bin lib models testdata samples; do
+  for item in bin lib models testdata samples assets; do
     [ "$item" = "testdata" ] && [ $SKIP_TESTDATA -eq 1 ] && continue
     [ "$item" = "samples" ] && [ $SKIP_SAMPLES -eq 1 ] && continue
     [ "$item" = "models" ] && [ $SKIP_MODELS -eq 1 ] && continue

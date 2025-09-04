@@ -2,7 +2,7 @@
 // 多模型真实图片推理示例 (仅 ResNet18 + YOLO)
 // - ResNet18: 读取图片, resize 到 224x224, 归一化 + ImageNet 均值方差, 输出 top-5 标签
 // - YOLO: 读取图片, resize 到 640x640(简单拉伸), 解析第一输出张量, 打印若干检测框
-// 依赖: third_party/stb_image.h, stb_image_resize2.h, imagenet_classes.txt
+// 依赖: third_party/stb_image.h, stb_image_resize2.h, labels/imagenet_classes.txt, labels/coco_classes.txt
 // 命令行:
 //   --model <resnet|yolo|embed|all>
 //   --image <image_path> (对 resnet / yolo 有效)
@@ -19,6 +19,7 @@
 #include <cmath>
 #include <cctype>
 #include <onnxruntime_cxx_api.h>
+#include <unistd.h> // readlink 获取可执行路径
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "third_party/stb_image.h"
@@ -28,8 +29,23 @@
 namespace fs = std::filesystem;
 
 static void Usage(){
-  std::cout << "用法: ort_models --model <resnet|yolo|all> --image <path> [--labels file] [--yolo-thresh v] [--yolo-nms v]\n";
-  std::cout << "说明: --yolo-thresh 置信度阈值(默认0.25)  --yolo-nms NMS IoU 阈值(默认0.45)\n";
+  std::cout << "用法: ort_models --model <resnet|yolo|all> --image <path>\n";
+  std::cout << "       [--labels imagenet_file] [--yolo-labels coco_file]\n";
+  std::cout << "       [--yolo-thresh v] [--yolo-nms v]\n";
+  std::cout << "说明: 默认会在可执行目录下寻找 models/ 与 labels/ \n";
+  std::cout << "      --yolo-thresh 置信度阈值(默认0.25)  --yolo-nms NMS IoU 阈值(默认0.45)\n";
+}
+// 获取当前可执行文件所在目录 (Linux/OHOS 使用 /proc/self/exe)
+static std::string GetExecutableDir(){
+  char buf[4096];
+  ssize_t n = readlink("/proc/self/exe", buf, sizeof(buf)-1);
+  if(n > 0){
+    buf[n] = '\0';
+    std::string p(buf);
+    auto pos = p.find_last_of('/');
+    if(pos != std::string::npos) return p.substr(0,pos);
+  }
+  return std::string(".");
 }
 static void ToLower(std::string& s){ for(auto& c:s) c=(char)std::tolower((unsigned char)c); }
 
@@ -158,7 +174,9 @@ static void RunResNet(Ort::Session& sess, Ort::MemoryInfo& mem, Ort::AllocatorWi
   for(auto& r: top5){ std::string label = (r.idx < (int)labels.size()? labels[r.idx] : std::string("<no-label>")); std::cout << "  #"<<r.idx<<"  prob="<<r.val<<"  "<<label<<"\n"; }
 }
 
-static void RunYOLO(Ort::Session& sess, Ort::MemoryInfo& mem, Ort::AllocatorWithDefaultOptions& alloc, const std::string& image, float thresh, float nms_thresh){
+static void RunYOLO(Ort::Session& sess, Ort::MemoryInfo& mem, Ort::AllocatorWithDefaultOptions& alloc,
+                    const std::string& image, float thresh, float nms_thresh,
+                    const std::vector<std::string>& yolo_labels){
   std::vector<int64_t> shape{1,3,640,640}; std::vector<float> pixels; bool ok=false; int orig_w=640, orig_h=640;
   if(!image.empty() && fs::exists(image)) ok = LoadImageToCHWFloat(image,640,640,pixels,false,&orig_w,&orig_h);
   if(!ok){ pixels.assign((size_t)3*640*640, 0.0f); std::cout << "[YOLO] 警告: 使用填充伪图像\n"; orig_w=640; orig_h=640; }
@@ -183,9 +201,15 @@ static void RunYOLO(Ort::Session& sess, Ort::MemoryInfo& mem, Ort::AllocatorWith
     auto dets = NMS(dets_raw, nms_thresh);
     std::cout << "[YOLO] 原始检测="<<dets_raw.size()<<", NMS后="<<dets.size()<<" (conf>="<<thresh<<", nms="<<nms_thresh<<")\n";
     int show = std::min<size_t>(dets.size(), 10);
-    for(int i=0;i<show;++i){ auto& d=dets[i];
-      std::cout << "  #"<<i<<": cls="<<d.cls<<" conf="<<d.score
-                <<" box(xyxy)= ["<<d.x1<<","<<d.y1<<","<<d.x2<<","<<d.y2<<"]\n"; }
+    for(int i=0;i<show;++i){
+      auto& d=dets[i];
+      std::string cname = (d.cls>=0 && d.cls < (int)yolo_labels.size()) ? yolo_labels[d.cls] : std::string("<cls="+std::to_string(d.cls)+">");
+      std::cout << "  #"<<i
+                << ": cls="<<d.cls
+                << " ("<< cname << ")"
+                << " conf="<<d.score
+                << " box(xyxy)=["<<d.x1<<","<<d.y1<<","<<d.x2<<","<<d.y2<<"]\n";
+    }
     if(dets.empty()) { std::cout << "  (无满足阈值的检测, 原始输出预览:) "; PrintPreview(data, std::min(32, N*A)); }
   } else {
     std::cout << "[YOLO] 未识别的输出形状, 仅预览前几个值: "; PrintPreview(data, 32);
@@ -194,26 +218,42 @@ static void RunYOLO(Ort::Session& sess, Ort::MemoryInfo& mem, Ort::AllocatorWith
 
 int main(int argc, char** argv){
   try {
-  std::string select="all", image_path, labels_path="./third_party/imagenet_classes.txt"; float yolo_thresh = 0.25f; float yolo_nms = 0.45f;
+  std::string select="all", image_path;
+  // 运行时默认: 与可执行同目录的 labels/*.txt
+  std::string exec_dir = GetExecutableDir();
+  // 资源根: <prefix>/assets (可执行在 <prefix>/bin)
+  std::string default_asset_root = (fs::path(exec_dir).parent_path()/"assets").string();
+  // 允许环境变量覆盖
+  if(const char* envp = std::getenv("ORT_MODELS_ASSETS")){
+    default_asset_root = envp;
+  }
+  std::string asset_root = default_asset_root; // 可被 --asset-dir 覆盖
+  std::string labels_path = (fs::path(asset_root)/"labels"/"imagenet_classes.txt").string();
+  std::string yolo_labels_path = (fs::path(asset_root)/"labels"/"coco_classes.txt").string();
+  float yolo_thresh = 0.25f; float yolo_nms = 0.45f;
     for(int i=1;i<argc;i++){
       std::string a=argv[i];
       if(a=="--model" && i+1<argc){ select=argv[++i]; ToLower(select);} else
       if(a=="--image" && i+1<argc){ image_path=argv[++i]; } else
-      if(a=="--labels" && i+1<argc){ labels_path=argv[++i]; } else
-      if(a=="--yolo-thresh" && i+1<argc){ yolo_thresh = std::stof(argv[++i]); } else
-      if(a=="--yolo-nms" && i+1<argc){ yolo_nms = std::stof(argv[++i]); }
+  if(a=="--labels" && i+1<argc){ labels_path=argv[++i]; } else
+  if(a=="--yolo-labels" && i+1<argc){ yolo_labels_path=argv[++i]; } else
+  if(a=="--yolo-thresh" && i+1<argc){ yolo_thresh = std::stof(argv[++i]); } else
+  if(a=="--yolo-nms" && i+1<argc){ yolo_nms = std::stof(argv[++i]); } else
+  if(a=="--asset-dir" && i+1<argc){ asset_root = argv[++i]; }
       else if(a=="-h"||a=="--help"){ Usage(); return 0; }
     }
 
     Ort::Env env(ORT_LOGGING_LEVEL_WARNING, "ort_models");
     Ort::SessionOptions opt; opt.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
-    const std::string model_dir = "./models"; // 与可执行同级
+  const std::string model_dir = (fs::path(asset_root)/"models").string();
     std::vector<ModelSpec> models = {
       {model_dir+"/resnet-18.onnx", ModelKind::ResNet},
       {model_dir+"/yolo10s.onnx", ModelKind::YOLO}
     };
-    std::vector<std::string> labels = fs::exists(labels_path)? ReadLines(labels_path) : std::vector<std::string>{};
-    if(labels.empty()) std::cout << "[ResNet18] 警告: 标签文件缺失或为空: "<<labels_path<<"\n";
+  std::vector<std::string> labels = fs::exists(labels_path)? ReadLines(labels_path) : std::vector<std::string>{};
+  if(labels.empty()) std::cout << "[ResNet18] 警告: 标签文件缺失或为空: "<<labels_path<<"\n";
+  std::vector<std::string> yolo_labels = fs::exists(yolo_labels_path)? ReadLines(yolo_labels_path) : std::vector<std::string>{};
+  if(yolo_labels.empty()) std::cout << "[YOLO] 警告: COCO 标签文件缺失或为空: "<<yolo_labels_path<<" (将仅输出类别编号)\n";
 
     Ort::AllocatorWithDefaultOptions alloc; auto mem = Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtArenaAllocator, OrtMemTypeDefault);
 
@@ -227,7 +267,7 @@ int main(int argc, char** argv){
       Ort::Session sess(env, m.path.c_str(), opt);
       switch(m.kind){
         case ModelKind::ResNet: RunResNet(sess, mem, alloc, image_path, labels); break;
-        case ModelKind::YOLO: RunYOLO(sess, mem, alloc, image_path, yolo_thresh, yolo_nms); break;
+  case ModelKind::YOLO: RunYOLO(sess, mem, alloc, image_path, yolo_thresh, yolo_nms, yolo_labels); break;
       }
     }
   } catch(const Ort::Exception& e){ std::cerr << "ORT Exception: "<<e.what()<<"\n"; return 1; }

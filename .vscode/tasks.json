@@ -80,7 +80,7 @@
       "label": "ort-ohos-install-tests-into-prefix",
       "type": "shell",
       "command": "bash",
-      "args": ["scripts/ohos/install_tests_into_prefix.sh"],
+      "args": ["tools/scripts/ohos/install_tests_into_prefix.sh"],
       "dependsOn": ["ort-ohos-install-all-debug"],
       "problemMatcher": [],
       "presentation": {"reveal":"silent","panel":"shared"}
@@ -90,7 +90,7 @@
       "label": "ort-ohos-deploy-installed-all",
       "type": "shell",
       "command": "bash",
-      "args": ["scripts/ohos/deploy_installed_all.sh"],
+      "args": ["tools/scripts/ohos/deploy_installed_all.sh"],
       "dependsOn": ["ort-ohos-install-tests-into-prefix"],
       "problemMatcher": [],
       "presentation": {"reveal":"always","panel":"shared"}
@@ -118,6 +118,30 @@
       "type": "shell",
       "command": "hdc",
       "args": ["shell","cd /data/local/tmp/ort/bin && LD_LIBRARY_PATH=/data/local/tmp/ort/lib /data/local/tmp/gdbserver :41216 ./ort_models"],
+      "isBackground": true,
+      "problemMatcher": [{
+        "pattern": [{"regexp": ".","file":1,"location":2,"message":3}],
+        "background": {"activeOnStart": true, "beginsPattern": "Listening on port", "endsPattern": "Listening on port 41216"}
+      }]
+    },
+    // Start gdbserver (ResNet only)
+    {
+      "label": "ort-ohos-start-gdbserver-models-resnet",
+      "type": "shell",
+      "command": "hdc",
+      "args": ["shell","cd /data/local/tmp/ort/bin && LD_LIBRARY_PATH=/data/local/tmp/ort/lib /data/local/tmp/gdbserver :41216 ./ort_models --model resnet --image ../assets/images/EdlNaRhg9ik.jpg"],
+      "isBackground": true,
+      "problemMatcher": [{
+        "pattern": [{"regexp": ".","file":1,"location":2,"message":3}],
+        "background": {"activeOnStart": true, "beginsPattern": "Listening on port", "endsPattern": "Listening on port 41216"}
+      }]
+    },
+    // Start gdbserver (YOLO only)
+    {
+      "label": "ort-ohos-start-gdbserver-models-yolo",
+      "type": "shell",
+      "command": "hdc",
+      "args": ["shell","cd /data/local/tmp/ort/bin && LD_LIBRARY_PATH=/data/local/tmp/ort/lib /data/local/tmp/gdbserver :41216 ./ort_models --model yolo --image ../assets/images/EdlNaRhg9ik.jpg --yolo-thresh 0.25 --yolo-nms 0.45"],
       "isBackground": true,
       "problemMatcher": [{
         "pattern": [{"regexp": ".","file":1,"location":2,"message":3}],
@@ -177,6 +201,22 @@
       "dependsOn": [
         "ort-ohos-port-forward",
         "ort-ohos-start-gdbserver-models"
+      ]
+    },
+    {
+      "label": "ort-ohos-quick-start-models-resnet",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "ort-ohos-port-forward",
+        "ort-ohos-start-gdbserver-models-resnet"
+      ]
+    },
+    {
+      "label": "ort-ohos-quick-start-models-yolo",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "ort-ohos-port-forward",
+        "ort-ohos-start-gdbserver-models-yolo"
       ]
     },
     // Quick sequence (test all)

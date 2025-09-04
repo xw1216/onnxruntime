@@ -29,8 +29,20 @@ set_target_properties(ort_models PROPERTIES
 
 install(TARGETS ort_models RUNTIME DESTINATION bin)
 # 不再重复拷贝 libonnxruntime.so, 运行时通过 LD_LIBRARY_PATH 指向 runtime 安装目录的 lib
-# install model files
+
+# 统一资源放入安装前缀根目录下的 assets/ 子目录，以便部署脚本简单打包且与可执行分离
+set(ORT_MODELS_ASSET_DIR assets)
+
+# 模型、标签、示例图片
 file(GLOB MODEL_FILES "${CMAKE_SOURCE_DIR}/models/*.onnx")
 if(MODEL_FILES)
-  install(FILES ${MODEL_FILES} DESTINATION bin/models)
+  install(FILES ${MODEL_FILES} DESTINATION ${ORT_MODELS_ASSET_DIR}/models)
+endif()
+file(GLOB LABEL_FILES "${CMAKE_SOURCE_DIR}/labels/*.txt")
+if(LABEL_FILES)
+  install(FILES ${LABEL_FILES} DESTINATION ${ORT_MODELS_ASSET_DIR}/labels)
+endif()
+file(GLOB IMAGE_FILES "${CMAKE_SOURCE_DIR}/images/*")
+if(IMAGE_FILES)
+  install(FILES ${IMAGE_FILES} DESTINATION ${ORT_MODELS_ASSET_DIR}/images)
 endif()

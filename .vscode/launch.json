@@ -31,17 +31,17 @@
       ]
     },
     {
-      "name": "OHOS Ort Model Quick Debug",
+      "name": "OHOS Ort ResNet Quick Debug",
       "type": "cppdbg",
       "request": "launch",
       "program": "${workspaceFolder}/installed/ort_ohos_riscv64_debug/bin/ort_models",
-      "args": [],
+      "args": ["--model","resnet","--image","../assets/images/EdlNaRhg9ik.jpg"],
       "cwd": "${workspaceFolder}",
       "stopAtEntry": true,
       "MIMode": "gdb",
       "miDebuggerPath": "/usr/bin/gdb-multiarch",
       "miDebuggerServerAddress": "localhost:41216",
-      "preLaunchTask": "ort-ohos-quick-start-models",
+      "preLaunchTask": "ort-ohos-quick-start-models-resnet",
       "postDebugTask": "ort-ohos-close-debug",
       "additionalSOLibSearchPath": "${workspaceFolder}/installed/ort_ohos_riscv64_debug/lib:/data/local/tmp/ort/lib",
       "sourceFileMap": {
@@ -56,19 +56,19 @@
         {"text": "set auto-solib-add on","ignoreFailures": true},
         {"text": "directory ${workspaceFolder}/onnxruntime"}
       ]
-  },
-  {
-      "name": "OHOS Ort Test All Full Debug",
+    },
+    {
+      "name": "OHOS Ort YOLO Quick Debug",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${workspaceFolder}/installed/ort_ohos_riscv64_debug/bin/onnxruntime_test_all",
-      "args": ["--help"],
+      "program": "${workspaceFolder}/installed/ort_ohos_riscv64_debug/bin/ort_models",
+      "args": ["--model","yolo","--image","../assets/images/EdlNaRhg9ik.jpg","--yolo-thresh","0.25","--yolo-nms","0.45"],
       "cwd": "${workspaceFolder}",
       "stopAtEntry": true,
       "MIMode": "gdb",
       "miDebuggerPath": "/usr/bin/gdb-multiarch",
       "miDebuggerServerAddress": "localhost:41216",
-      "preLaunchTask": "ort-ohos-full-debug-test-all",
+      "preLaunchTask": "ort-ohos-quick-start-models-yolo",
       "postDebugTask": "ort-ohos-close-debug",
       "additionalSOLibSearchPath": "${workspaceFolder}/installed/ort_ohos_riscv64_debug/lib:/data/local/tmp/ort/lib",
       "sourceFileMap": {
