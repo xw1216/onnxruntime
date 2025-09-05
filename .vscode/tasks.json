@@ -1,6 +1,160 @@
 {
   "version": "2.0.0",
   "tasks": [
+    // ===================== Linux RISC-V64 Remote Debug =====================
+    {
+      "label": "rv64-set-env",
+      "type": "shell",
+      "command": "bash",
+      "problemMatcher": [],
+      "options": { "env": { "BOARD_HOST": "wayne@musepipro", "BOARD_DEPLOY_DIR": "/home/wayne/ort" } },
+      "args": ["-c","echo Using $BOARD_HOST target at $BOARD_DEPLOY_DIR"]
+    },
+    // ONNX Runtime
+    {
+      "label": "rv64-build-runtime-debug",
+      "type": "shell",
+      "command": "python3",
+      "args": [
+        "tools/ci_build/build.py",
+        "--rv64",
+        "--riscv_toolchain_root","/home/wayne/Workspace/spacemit/spacemit-toolchain-linux-glibc-x86_64-v1.1.2",
+        "--build_dir","build/bianbu_riscv64",
+        "--config","Debug",
+        "--update","--build",
+        "--parallel","8",
+        "--build_shared_lib",
+        "--riscv_march","rv64gcv",
+        "--skip_tests"
+      ],
+      "dependsOn": ["rv64-set-env"],
+      "problemMatcher": [],
+      "presentation": {"reveal": "always", "panel": "shared"}
+    },
+    {
+      "label": "rv64-install-runtime-debug",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "--install","build/bianbu_riscv64/Debug",
+        "--prefix","installed/ort_bianbu_rv64_debug"
+      ],
+      "dependsOn": ["rv64-build-runtime-debug"],
+      "problemMatcher": [],
+      "presentation": {"reveal": "always", "panel": "shared"}
+    },
+    // ort_models
+    {
+      "label": "rv64-configure-ort-models",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "-S","samples/ort_models",
+        "-B","build/bianbu_models",
+        "-DORT_ROOT=${workspaceFolder}",
+        "-DORT_BUILD_DIR=${workspaceFolder}/build/bianbu_riscv64/Debug",
+        "-DCMAKE_BUILD_TYPE=Debug"
+      ],
+      "dependsOn": ["rv64-install-runtime-debug"],
+      "problemMatcher": [],
+      "presentation": {"reveal": "silent", "panel": "shared"}
+    },
+    {
+      "label": "rv64-build-ort-models",
+      "type": "shell",
+      "command": "cmake",
+      "args": ["--build","build/bianbu_models","-j","4"],
+      "dependsOn": ["rv64-configure-ort-models"],
+      "problemMatcher": [],
+      "presentation": {"reveal": "always", "panel": "shared"}
+    },
+    {
+      "label": "rv64-install-ort-models",
+      "type": "shell",
+      "command": "cmake",
+      "args": ["--install","build/bianbu_models","--prefix","installed/ort_bianbu_rv64_debug"],
+      "dependsOn": ["rv64-build-ort-models"],
+      "problemMatcher": [],
+      "presentation": {"reveal": "always", "panel": "shared"}
+    },
+    // deploy
+    {
+      "label": "rv64-install-tests-into-prefix",
+      "type": "shell",
+      "command": "bash",
+      "args": ["-c","cp build/bianbu_riscv64/Debug/onnxruntime_test_all installed/ort_bianbu_rv64_debug/bin/ 2>/dev/null || true"],
+      "dependsOn": ["rv64-install-runtime-debug"],
+      "problemMatcher": [],
+      "presentation": {"reveal": "silent", "panel": "shared"}
+    },
+    {
+      "label": "rv64-build-deploy",
+      "type": "shell",
+      "command": "bash",
+      "dependsOn": ["rv64-install-runtime-debug", "rv64-install-ort-models", "rv64-install-tests-into-prefix"],
+      "args": [
+        "-c",
+        "rsync -az --delete installed/ort_bianbu_rv64_debug/ $BOARD_HOST:$BOARD_DEPLOY_DIR/"
+      ],
+      "problemMatcher": []
+    },
+    // Start gdbserver for ort_models (e.g., resnet)
+    {
+      "label": "rv64-start-gdbserver-resnet",
+      "type": "shell",
+      "command": "bash",
+      "dependsOn": ["rv64-close-debug"],
+      "args": [
+        "-c",
+        "ssh $BOARD_HOST 'cd $BOARD_DEPLOY_DIR/bin && LD_LIBRARY_PATH=$BOARD_DEPLOY_DIR/lib gdbserver :41217 ./ort_models --model resnet --image ../assets/images/EdlNaRhg9ik.jpg'"
+      ],
+      "isBackground": true,
+      "problemMatcher": [{
+        "pattern": [{"regexp": ".","file":1,"location":2,"message":3}],
+        "background": {"activeOnStart": true, "beginsPattern": "Listening on port", "endsPattern": "Listening on port 41217"}
+      }]
+    },
+    // Start gdbserver for ort_models (YOLO)
+    {
+      "label": "rv64-start-gdbserver-yolo",
+      "type": "shell",
+      "command": "bash",
+      "dependsOn": ["rv64-close-debug"],
+      "args": [
+        "-c",
+        "ssh $BOARD_HOST 'cd $BOARD_DEPLOY_DIR/bin && LD_LIBRARY_PATH=$BOARD_DEPLOY_DIR/lib gdbserver :41217 ./ort_models --model yolo --image ../assets/images/EdlNaRhg9ik.jpg --yolo-thresh 0.25 --yolo-nms 0.45'"
+      ],
+      "isBackground": true,
+      "problemMatcher": [{
+        "pattern": [{"regexp": ".","file":1,"location":2,"message":3}],
+        "background": {"activeOnStart": true, "beginsPattern": "Listening on port", "endsPattern": "Listening on port 41217"}
+      }]
+    },
+    // Start gdbserver for onnxruntime_test_all
+    {
+      "label": "rv64-start-gdbserver-test-all",
+      "type": "shell",
+      "command": "bash",
+      "dependsOn": ["rv64-close-debug"],
+      "args": [
+        "-c",
+        "ssh $BOARD_HOST 'cd $BOARD_DEPLOY_DIR/bin && LD_LIBRARY_PATH=$BOARD_DEPLOY_DIR/lib gdbserver :41217 ./onnxruntime_test_all'"
+      ],
+      "isBackground": true,
+      "problemMatcher": [{
+        "pattern": [{"regexp": ".","file":1,"location":2,"message":3}],
+        "background": {"activeOnStart": true, "beginsPattern": "Listening on port", "endsPattern": "Listening on port 41217"}
+      }]
+    },
+    {
+      "label": "rv64-close-debug",
+      "type": "shell",
+      "command": "bash",
+      "args": ["-c","ssh $BOARD_HOST 'pkill -f gdbserver || true'"],
+      "problemMatcher": []
+    },
+
+    // ===================== OHOS RISC-V64 Remote Debug =====================
     // 1. Build ONNX Runtime (Debug, shared lib)
     {
       "label": "ort-ohos-build-runtime",
@@ -29,13 +183,13 @@
       "problemMatcher": [],
       "presentation": {"reveal": "always","panel":"shared"}
     },
-    // 3. Configure sample models project (depends on runtime build for headers/libs)
+  // 3. Configure sample models project (depends on runtime build for headers/libs)
     {
       "label": "ort-ohos-configure-models",
       "type": "shell",
       "command": "cmake",
       "args": [
-        "-S","samples/ohos/ort_models",
+        "-S","samples/ort_models",
         "-B","build/ohos_models",
         "-DCMAKE_TOOLCHAIN_FILE=${workspaceFolder}/cmake/ohos_riscv64.toolchain.cmake",
         "-DORT_ROOT=${workspaceFolder}",
@@ -112,19 +266,7 @@
       "args": ["shell","pkill -f gdbserver || true"],
       "problemMatcher": []
     },
-  // 10. Start gdbserver with environment (LD_LIBRARY_PATH retained for safety)
-    {
-      "label": "ort-ohos-start-gdbserver-models",
-      "type": "shell",
-      "command": "hdc",
-      "args": ["shell","cd /data/local/tmp/ort/bin && LD_LIBRARY_PATH=/data/local/tmp/ort/lib /data/local/tmp/gdbserver :41216 ./ort_models"],
-      "isBackground": true,
-      "problemMatcher": [{
-        "pattern": [{"regexp": ".","file":1,"location":2,"message":3}],
-        "background": {"activeOnStart": true, "beginsPattern": "Listening on port", "endsPattern": "Listening on port 41216"}
-      }]
-    },
-    // Start gdbserver (ResNet only)
+    // 10. Start gdbserver (ResNet only)
     {
       "label": "ort-ohos-start-gdbserver-models-resnet",
       "type": "shell",
@@ -136,7 +278,15 @@
         "background": {"activeOnStart": true, "beginsPattern": "Listening on port", "endsPattern": "Listening on port 41216"}
       }]
     },
-    // Start gdbserver (YOLO only)
+    {
+      "label": "ort-ohos-quick-start-models-resnet",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "ort-ohos-port-forward",
+        "ort-ohos-start-gdbserver-models-resnet"
+      ]
+    },
+    // 11. Start gdbserver (YOLO only)
     {
       "label": "ort-ohos-start-gdbserver-models-yolo",
       "type": "shell",
@@ -148,19 +298,15 @@
         "background": {"activeOnStart": true, "beginsPattern": "Listening on port", "endsPattern": "Listening on port 41216"}
       }]
     },
-  // 11. Full sequence for one-click debug
     {
-      "label": "ort-ohos-full-debug-sequence",
+      "label": "ort-ohos-quick-start-models-yolo",
       "dependsOrder": "sequence",
       "dependsOn": [
-        "ort-ohos-install-all-debug",
-        "ort-ohos-install-tests-into-prefix",
-        "ort-ohos-deploy-installed-all",
         "ort-ohos-port-forward",
-        "ort-ohos-start-gdbserver-models"
+        "ort-ohos-start-gdbserver-models-yolo"
       ]
     },
-  // 12. Close debug (cleanup)
+    // 12. Close debug (cleanup)
     {
       "label": "ort-ohos-stop-forward",
       "type": "shell",
@@ -174,7 +320,7 @@
       "dependsOn": ["ort-ohos-stop-gdbserver","ort-ohos-stop-forward"],
       "problemMatcher": []
     },
-  // 13. Clean helper
+    // 13. Clean helper
     {
       "label": "ort-ohos-clean",
       "type": "shell",
@@ -182,7 +328,8 @@
       "args": ["-c","rm -rf build/ohos_models build/ohos_riscv64 installed/ort_ohos_riscv64_debug build/ort_sync_stage build/ort_sync_stage.tar.gz"],
       "problemMatcher": []
     },
-    // onnxruntime test
+
+    // 14. onnxruntime official test
     {
       "label": "ort-ohos-start-gdbserver-test-all",
       "type": "shell",
@@ -194,31 +341,6 @@
         "background": {"activeOnStart": true, "beginsPattern": "Listening on port", "endsPattern": "Listening on port 41216"}
       }]
     },
-    // Quick sequence (models): just ensure port forward + stop any stale gdbserver + start
-    {
-      "label": "ort-ohos-quick-start-models",
-      "dependsOrder": "sequence",
-      "dependsOn": [
-        "ort-ohos-port-forward",
-        "ort-ohos-start-gdbserver-models"
-      ]
-    },
-    {
-      "label": "ort-ohos-quick-start-models-resnet",
-      "dependsOrder": "sequence",
-      "dependsOn": [
-        "ort-ohos-port-forward",
-        "ort-ohos-start-gdbserver-models-resnet"
-      ]
-    },
-    {
-      "label": "ort-ohos-quick-start-models-yolo",
-      "dependsOrder": "sequence",
-      "dependsOn": [
-        "ort-ohos-port-forward",
-        "ort-ohos-start-gdbserver-models-yolo"
-      ]
-    },
     // Quick sequence (test all)
     {
       "label": "ort-ohos-quick-start-test-all",
@@ -228,25 +350,7 @@
         "ort-ohos-start-gdbserver-test-all"
       ]
     },
-        {
-      "label": "ort-ohos-quick-start-test-fail",
-      "dependsOrder": "sequence",
-      "dependsOn": [
-        "ort-ohos-port-forward",
-        "ort-ohos-start-gdbserver-test-fail"
-      ]
-    },
-    {
-      "label": "ort-ohos-start-gdbserver-test-fail",
-      "type": "shell",
-      "command": "hdc",
-      "args": ["shell","cd /data/local/tmp/ort && ORT_DUMP_ACTUAL=1 LD_LIBRARY_PATH=/data/local/tmp/ort/lib /data/local/tmp/gdbserver :41216 ./bin/onnxruntime_test_all --gtest_filter=Random.MultinomialDefaultDType"],
-      "isBackground": true,
-      "problemMatcher": [{
-        "pattern": [{"regexp": ".","file":1,"location":2,"message":3}],
-        "background": {"activeOnStart": true, "beginsPattern": "Listening on port", "endsPattern": "Listening on port 41216"}
-      }]
-    },
+    // Full sequence for one-click debug (test all)
     {
       "label": "ort-ohos-full-debug-test-all",
       "dependsOrder": "sequence",
@@ -258,5 +362,25 @@
         "ort-ohos-start-gdbserver-test-all"
       ]
     }
+    //     {
+    //   "label": "ort-ohos-quick-start-test-fail",
+    //   "dependsOrder": "sequence",
+    //   "dependsOn": [
+    //     "ort-ohos-port-forward",
+    //     "ort-ohos-start-gdbserver-test-fail"
+    //   ]
+    // },
+    // {
+    //   "label": "ort-ohos-start-gdbserver-test-fail",
+    //   "type": "shell",
+    //   "command": "hdc",
+    //   "args": ["shell","cd /data/local/tmp/ort && ORT_DUMP_ACTUAL=1 LD_LIBRARY_PATH=/data/local/tmp/ort/lib /data/local/tmp/gdbserver :41216 ./bin/onnxruntime_test_all --gtest_filter=Random.MultinomialDefaultDType"],
+    //   "isBackground": true,
+    //   "problemMatcher": [{
+    //     "pattern": [{"regexp": ".","file":1,"location":2,"message":3}],
+    //     "background": {"activeOnStart": true, "beginsPattern": "Listening on port", "endsPattern": "Listening on port 41216"}
+    //   }]
+    // },
+
   ]
 }

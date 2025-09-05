@@ -2,29 +2,75 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "OHOS Ort Model Full Debug",
+      "name": "RV64 Ort ResNet Quick Debug",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${workspaceFolder}/installed/ort_ohos_riscv64_debug/bin/ort_models",
+      "program": "${workspaceFolder}/installed/ort_bianbu_rv64_debug/bin/ort_models",
+      "args": ["--model","resnet","--image","../assets/images/EdlNaRhg9ik.jpg"],
+      "cwd": "${workspaceFolder}",
+      "stopAtEntry": true,
+      "MIMode": "gdb",
+      "miDebuggerPath": "/usr/bin/gdb-multiarch",
+      "miDebuggerServerAddress": "localhost:41217",
+      "preLaunchTask": "rv64-start-gdbserver-resnet",
+      "postDebugTask": "rv64-close-debug",
+      "additionalSOLibSearchPath": "${workspaceFolder}/installed/ort_bianbu_rv64_debug/lib:/home/wayne/ort/lib",
+      "sourceFileMap": {
+        "/home/wayne/ort/bin": "${workspaceFolder}/installed/ort_bianbu_rv64_debug/bin",
+        "/home/wayne/ort/lib": "${workspaceFolder}/installed/ort_bianbu_rv64_debug/lib"
+      },
+      "setupCommands": [
+        {"text": "-enable-pretty-printing","ignoreFailures": true},
+        {"text": "set architecture riscv:rv64","ignoreFailures": false},
+        {"text": "set auto-solib-add on","ignoreFailures": true},
+        {"text": "directory ${workspaceFolder}/onnxruntime"}
+      ]
+    },
+    {
+      "name": "RV64 Ort YOLO Quick Debug",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/installed/ort_bianbu_rv64_debug/bin/ort_models",
+      "args": ["--model","yolo","--image","../assets/images/EdlNaRhg9ik.jpg","--yolo-thresh","0.25","--yolo-nms","0.45"],
+      "cwd": "${workspaceFolder}",
+      "stopAtEntry": true,
+      "MIMode": "gdb",
+      "miDebuggerPath": "/usr/bin/gdb-multiarch",
+      "miDebuggerServerAddress": "localhost:41217",
+      "preLaunchTask": "rv64-start-gdbserver-yolo",
+      "postDebugTask": "rv64-close-debug",
+      "additionalSOLibSearchPath": "${workspaceFolder}/installed/ort_bianbu_rv64_debug/lib:/home/wayne/ort/lib",
+      "sourceFileMap": {
+        "/home/wayne/ort/bin": "${workspaceFolder}/installed/ort_bianbu_rv64_debug/bin",
+        "/home/wayne/ort/lib": "${workspaceFolder}/installed/ort_bianbu_rv64_debug/lib"
+      },
+      "setupCommands": [
+        {"text": "-enable-pretty-printing","ignoreFailures": true},
+        {"text": "set architecture riscv:rv64","ignoreFailures": false},
+        {"text": "set auto-solib-add on","ignoreFailures": true},
+        {"text": "directory ${workspaceFolder}/onnxruntime"}
+      ]
+    },
+    {
+      "name": "RV64 Ort Test All Quick Debug",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/installed/ort_bianbu_rv64_debug/bin/onnxruntime_test_all",
       "args": [],
       "cwd": "${workspaceFolder}",
       "stopAtEntry": true,
       "MIMode": "gdb",
       "miDebuggerPath": "/usr/bin/gdb-multiarch",
-      "miDebuggerServerAddress": "localhost:41216",
-      "preLaunchTask": "ort-ohos-full-debug-sequence",
-      "postDebugTask": "ort-ohos-close-debug",
-      "environment": [],
-      "additionalSOLibSearchPath": "${workspaceFolder}/installed/ort_ohos_riscv64_debug/lib:/data/local/tmp/ort/lib",
+      "miDebuggerServerAddress": "localhost:41217",
+      "preLaunchTask": "rv64-start-gdbserver-test-all",
+      "postDebugTask": "rv64-close-debug",
+      "additionalSOLibSearchPath": "${workspaceFolder}/installed/ort_bianbu_rv64_debug/lib:/home/wayne/ort/lib",
       "sourceFileMap": {
-        "/data/local/tmp/ort/bin": "${workspaceFolder}/installed/ort_ohos_riscv64_debug/bin",
-        "/data/local/tmp/ort/lib": "${workspaceFolder}/installed/ort_ohos_riscv64_debug/lib",
-        "/data/local/tmp/ort": "${workspaceFolder}/installed/ort_ohos_riscv64_debug"
+        "/home/wayne/ort/bin": "${workspaceFolder}/installed/ort_bianbu_rv64_debug/bin",
+        "/home/wayne/ort/lib": "${workspaceFolder}/installed/ort_bianbu_rv64_debug/lib"
       },
       "setupCommands": [
-        {"text": "-enable-pretty-printing","description": "Pretty printing","ignoreFailures": true},
-        {"text": "set print object on","ignoreFailures": true},
-        {"text": "set sysroot ${workspaceFolder}/tools/ohos_ndk/sysroot","ignoreFailures": false},
+        {"text": "-enable-pretty-printing","ignoreFailures": true},
         {"text": "set architecture riscv:rv64","ignoreFailures": false},
         {"text": "set auto-solib-add on","ignoreFailures": true},
         {"text": "directory ${workspaceFolder}/onnxruntime"}
@@ -111,32 +157,6 @@
         {"text": "directory ${workspaceFolder}/onnxruntime"}
       ]
     },
-    {
-      "name": "OHOS Ort Test Fail Quick Debug",
-      "type": "cppdbg",
-      "request": "launch",
-      "program": "${workspaceFolder}/installed/ort_ohos_riscv64_debug/bin/onnxruntime_test_all",
-      "args": [],
-      "cwd": "${workspaceFolder}",
-      "stopAtEntry": true,
-      "MIMode": "gdb",
-      "miDebuggerPath": "/usr/bin/gdb-multiarch",
-      "miDebuggerServerAddress": "localhost:41216",
-      "preLaunchTask": "ort-ohos-quick-start-test-fail",
-      "postDebugTask": "ort-ohos-close-debug",
-      "additionalSOLibSearchPath": "${workspaceFolder}/installed/ort_ohos_riscv64_debug/lib:/data/local/tmp/ort/lib",
-      "sourceFileMap": {
-        "/data/local/tmp/ort/bin": "${workspaceFolder}/installed/ort_ohos_riscv64_debug/bin",
-        "/data/local/tmp/ort/lib": "${workspaceFolder}/installed/ort_ohos_riscv64_debug/lib",
-        "/data/local/tmp/ort": "${workspaceFolder}/installed/ort_ohos_riscv64_debug"
-      },
-      "setupCommands": [
-        {"text": "-enable-pretty-printing","ignoreFailures": true},
-        {"text": "set sysroot ${workspaceFolder}/tools/ohos_ndk/sysroot","ignoreFailures": false},
-        {"text": "set architecture riscv:rv64","ignoreFailures": false},
-        {"text": "set auto-solib-add on","ignoreFailures": true},
-        {"text": "directory ${workspaceFolder}/onnxruntime"}
-      ]
-    }
+
   ]
 }

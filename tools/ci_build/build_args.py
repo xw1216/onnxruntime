@@ -258,6 +258,17 @@ def add_cross_compile_args(parser: argparse.ArgumentParser) -> None:
         default="",
         help="Path to RISC-V qemu executable.",
     )
+    parser.add_argument(
+        "--riscv_march",
+        type=str,
+        default="",
+        help="Override -march flags for riscv64 (e.g. rv64gcv_zba_zbb). If empty uses toolchain default.",
+    )
+    parser.add_argument(
+        "--enable_riscv_v",
+        action="store_true",
+        help="Enable RISC-V Vector (RVV 1.0) support. If current -march lacks 'v', it will be added automatically.",
+    )
 
 def add_ohos_args(parser: argparse.ArgumentParser) -> None:
     """Adds arguments for OpenHarmony (OHOS) cross builds (minimal CPU EP)."""

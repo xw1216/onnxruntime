@@ -10,10 +10,31 @@ endif()
 
 set(ORT_INCLUDE_DIR ${ORT_ROOT}/include)
 set(ORT_INCLUDE_SESSION_DIR ${ORT_ROOT}/include/onnxruntime/core/session)
+
+# Require explicit ORT_BUILD_DIR. Keep this simple per user request (auto-detection removed).
 if(NOT DEFINED ORT_BUILD_DIR)
-  set(ORT_BUILD_DIR ${ORT_ROOT}/build/ohos_riscv64/Debug)
+  message(FATAL_ERROR "ORT_BUILD_DIR is required. Example: -DORT_BUILD_DIR=\n  (linux) ${ORT_ROOT}/build/bianbu_riscv64/Debug OR installed/ort_bianbu_rv64_debug\n  (ohos)  ${ORT_ROOT}/build/ohos_riscv64/Debug OR installed/ort_ohos_riscv64_debug")
+else()
+  message(STATUS "Using ORT_BUILD_DIR=${ORT_BUILD_DIR}")
 endif()
-set(ORT_LIB ${ORT_BUILD_DIR}/libonnxruntime.so)
+
+# Resolve libonnxruntime.so potentially located directly or under lib/
+unset(ORT_LIB)
+set(_ORT_LIB_CANDIDATES
+  ${ORT_BUILD_DIR}/libonnxruntime.so
+  ${ORT_BUILD_DIR}/lib/libonnxruntime.so
+)
+foreach(_libcand IN LISTS _ORT_LIB_CANDIDATES)
+  if(EXISTS ${_libcand})
+    set(ORT_LIB ${_libcand})
+    break()
+  endif()
+endforeach()
+if(NOT ORT_LIB)
+  message(FATAL_ERROR "libonnxruntime.so not found in ORT_BUILD_DIR='${ORT_BUILD_DIR}'. Tried: ${_ORT_LIB_CANDIDATES}")
+else()
+  message(STATUS "Using ORT_LIB=${ORT_LIB}")
+endif()
 
 add_executable(ort_models main.cpp)
 
@@ -23,8 +44,9 @@ target_link_libraries(ort_models PRIVATE ${ORT_LIB} dl pthread m)
 
 set_target_properties(ort_models PROPERTIES
   BUILD_WITH_INSTALL_RPATH ON
-  INSTALL_RPATH "$ORIGIN"
-  BUILD_RPATH "\$ORIGIN"
+  # 让可执行优先搜索本目录以及上级 lib 目录，避免命中系统同名旧版本
+  INSTALL_RPATH "$ORIGIN:$ORIGIN/../lib"
+  BUILD_RPATH "\$ORIGIN:\$ORIGIN/../lib"
 )
 
 install(TARGETS ort_models RUNTIME DESTINATION bin)

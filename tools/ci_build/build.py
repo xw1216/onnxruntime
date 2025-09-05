@@ -522,6 +522,14 @@ def generate_build_tree(
             "-DRISCV_QEMU_PATH:PATH=" + args.riscv_qemu_path,
             "-DCMAKE_TOOLCHAIN_FILE=" + os.path.join(source_dir, "cmake", "riscv64.toolchain.cmake"),
         ]
+        # Optional ISA overrides (Phase 1 enhancement)
+        if getattr(args, "riscv_march", ""):
+            cmake_args += [f"-DRISCV_MARCH_FLAGS=-march={args.riscv_march}"]
+        # Propagate RVV enable toggle to CMake (used by toolchain + kernels)
+        if getattr(args, "enable_riscv_v", False):
+            cmake_args += ["-Donnxruntime_ENABLE_RISCV_V=ON"]
+        else:
+            cmake_args += ["-Donnxruntime_ENABLE_RISCV_V=OFF"]
     # OpenHarmony (OHOS) minimal support
     if getattr(args, "ohos", False):
         add_default_definition(cmake_extra_defines, "onnxruntime_CROSS_COMPILING", "ON")
