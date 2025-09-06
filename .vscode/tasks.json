@@ -2,15 +2,15 @@
   "version": "2.0.0",
   "tasks": [
     // ===================== Linux RISC-V64 Remote Debug =====================
+    // ONNX Runtime
     {
-      "label": "rv64-set-env",
+      "label": "rv64-clean",
       "type": "shell",
       "command": "bash",
+      "args": ["-c","rm -rf build/bianbu_riscv64 installed/ort_bianbu_rv64_debug || true"],
       "problemMatcher": [],
-      "options": { "env": { "BOARD_HOST": "wayne@musepipro", "BOARD_DEPLOY_DIR": "/home/wayne/ort" } },
-      "args": ["-c","echo Using $BOARD_HOST target at $BOARD_DEPLOY_DIR"]
+      "presentation": {"reveal": "silent", "panel": "shared"}
     },
-    // ONNX Runtime
     {
       "label": "rv64-build-runtime-debug",
       "type": "shell",
@@ -24,10 +24,10 @@
         "--update","--build",
         "--parallel","8",
         "--build_shared_lib",
-        "--riscv_march","rv64gcv",
-        "--skip_tests"
+        "--riscv_march","rv64gcv_zba_zbb_zbs_zbc",
+        "--skip_tests",
+        "--cmake_extra_defines","CMAKE_SKIP_RPATH=ON"
       ],
-      "dependsOn": ["rv64-set-env"],
       "problemMatcher": [],
       "presentation": {"reveal": "always", "panel": "shared"}
     },
@@ -45,17 +45,28 @@
     },
     // ort_models
     {
+      "label": "rv64-clean-ort-models",
+      "type": "shell",
+      "command": "bash",
+      "args": ["-c","rm -rf build/bianbu_models || true"],
+      "problemMatcher": [],
+      "presentation": {"reveal": "silent", "panel": "shared"}
+    },
+    {
       "label": "rv64-configure-ort-models",
       "type": "shell",
       "command": "cmake",
       "args": [
         "-S","samples/ort_models",
         "-B","build/bianbu_models",
+        "-DCMAKE_TOOLCHAIN_FILE=${workspaceFolder}/cmake/riscv64.toolchain.cmake",
         "-DORT_ROOT=${workspaceFolder}",
+        "-DRISCV_TOOLCHAIN_ROOT=/home/wayne/Workspace/spacemit/spacemit-toolchain-linux-glibc-x86_64-v1.1.2",
+        "-DRISCV_MARCH_FLAGS=-march=rv64gcv",
         "-DORT_BUILD_DIR=${workspaceFolder}/build/bianbu_riscv64/Debug",
         "-DCMAKE_BUILD_TYPE=Debug"
       ],
-      "dependsOn": ["rv64-install-runtime-debug"],
+      "dependsOn": ["rv64-install-runtime-debug","rv64-clean-ort-models"],
       "problemMatcher": [],
       "presentation": {"reveal": "silent", "panel": "shared"}
     },
@@ -77,12 +88,21 @@
       "problemMatcher": [],
       "presentation": {"reveal": "always", "panel": "shared"}
     },
+    {
+      "label": "rv64-install-ort-models-assets",
+      "type": "shell",
+      "command": "bash",
+      "args": ["tools/scripts/linux/install_ort_models_assets.sh"],
+      "dependsOn": ["rv64-install-ort-models"],
+      "problemMatcher": [],
+      "presentation": {"reveal": "silent", "panel": "shared"}
+    },
     // deploy
     {
       "label": "rv64-install-tests-into-prefix",
       "type": "shell",
       "command": "bash",
-      "args": ["-c","cp build/bianbu_riscv64/Debug/onnxruntime_test_all installed/ort_bianbu_rv64_debug/bin/ 2>/dev/null || true"],
+      "args": ["tools/scripts/linux/install_tests_into_prefix.sh"],
       "dependsOn": ["rv64-install-runtime-debug"],
       "problemMatcher": [],
       "presentation": {"reveal": "silent", "panel": "shared"}
@@ -91,22 +111,28 @@
       "label": "rv64-build-deploy",
       "type": "shell",
       "command": "bash",
-      "dependsOn": ["rv64-install-runtime-debug", "rv64-install-ort-models", "rv64-install-tests-into-prefix"],
+      // "dependsOn": [
+      //   "rv64-install-runtime-debug",
+      //   "rv64-install-ort-models",
+      //   "rv64-install-ort-models-assets",
+      //   "rv64-install-tests-into-prefix"
+      // ],
       "args": [
         "-c",
-        "rsync -az --delete installed/ort_bianbu_rv64_debug/ $BOARD_HOST:$BOARD_DEPLOY_DIR/"
+        "rsync -az --delete installed/ort_bianbu_rv64_debug/ wayne@musepipro:/home/wayne/ort/"
       ],
       "problemMatcher": []
     },
-    // Start gdbserver for ort_models (e.g., resnet)
+    // Start gdbserver for ort_models (resnet)
     {
       "label": "rv64-start-gdbserver-resnet",
       "type": "shell",
-      "command": "bash",
-      "dependsOn": ["rv64-close-debug"],
+      "command": "ssh",
       "args": [
-        "-c",
-        "ssh $BOARD_HOST 'cd $BOARD_DEPLOY_DIR/bin && LD_LIBRARY_PATH=$BOARD_DEPLOY_DIR/lib gdbserver :41217 ./ort_models --model resnet --image ../assets/images/EdlNaRhg9ik.jpg'"
+        "-L 41217:localhost:41217",
+        "-o ExitOnForwardFailure=yes",
+        "musepipro",
+        "'cd /home/wayne/ort/bin && LD_LIBRARY_PATH=/home/wayne/ort/lib gdbserver :41217 ./ort_models --model resnet --image ../assets/images/EdlNaRhg9ik.jpg'"
       ],
       "isBackground": true,
       "problemMatcher": [{
@@ -118,11 +144,12 @@
     {
       "label": "rv64-start-gdbserver-yolo",
       "type": "shell",
-      "command": "bash",
-      "dependsOn": ["rv64-close-debug"],
+      "command": "ssh",
       "args": [
-        "-c",
-        "ssh $BOARD_HOST 'cd $BOARD_DEPLOY_DIR/bin && LD_LIBRARY_PATH=$BOARD_DEPLOY_DIR/lib gdbserver :41217 ./ort_models --model yolo --image ../assets/images/EdlNaRhg9ik.jpg --yolo-thresh 0.25 --yolo-nms 0.45'"
+        "-L 41217:localhost:41217",
+        "-o ExitOnForwardFailure=yes",
+        "musepipro",
+        "'cd /home/wayne/ort/bin && LD_LIBRARY_PATH=/home/wayne/ort/lib gdbserver :41217 ./ort_models --model yolo --image ../assets/images/EdlNaRhg9ik.jpg --yolo-thresh 0.25 --yolo-nms 0.45'"
       ],
       "isBackground": true,
       "problemMatcher": [{
@@ -134,11 +161,12 @@
     {
       "label": "rv64-start-gdbserver-test-all",
       "type": "shell",
-      "command": "bash",
-      "dependsOn": ["rv64-close-debug"],
+      "command": "ssh",
       "args": [
-        "-c",
-        "ssh $BOARD_HOST 'cd $BOARD_DEPLOY_DIR/bin && LD_LIBRARY_PATH=$BOARD_DEPLOY_DIR/lib gdbserver :41217 ./onnxruntime_test_all'"
+        "-L 41217:localhost:41217",
+        "-o ExitOnForwardFailure=yes",
+        "wayne@musepipro",
+        "'cd /home/wayne/ort && LD_LIBRARY_PATH=/home/wayne/ort/lib gdbserver :41217 ./bin/onnxruntime_test_all'"
       ],
       "isBackground": true,
       "problemMatcher": [{
@@ -149,8 +177,8 @@
     {
       "label": "rv64-close-debug",
       "type": "shell",
-      "command": "bash",
-      "args": ["-c","ssh $BOARD_HOST 'pkill -f gdbserver || true'"],
+      "command": "ssh",
+      "args": ["wayne@musepipro 'pkill -f gdbserver || true'"],
       "problemMatcher": []
     },
 

@@ -10,17 +10,19 @@
       "cwd": "${workspaceFolder}",
       "stopAtEntry": true,
       "MIMode": "gdb",
-      "miDebuggerPath": "/usr/bin/gdb-multiarch",
+      "miDebuggerPath": "/home/wayne/Workspace/gdb/gdb-16.3/build/riscv64/gdb/gdb",
       "miDebuggerServerAddress": "localhost:41217",
       "preLaunchTask": "rv64-start-gdbserver-resnet",
       "postDebugTask": "rv64-close-debug",
-      "additionalSOLibSearchPath": "${workspaceFolder}/installed/ort_bianbu_rv64_debug/lib:/home/wayne/ort/lib",
+      "additionalSOLibSearchPath": "${workspaceFolder}/installed/ort_bianbu_rv64_debug/lib",
       "sourceFileMap": {
         "/home/wayne/ort/bin": "${workspaceFolder}/installed/ort_bianbu_rv64_debug/bin",
-        "/home/wayne/ort/lib": "${workspaceFolder}/installed/ort_bianbu_rv64_debug/lib"
+        "/home/wayne/ort/lib": "${workspaceFolder}/installed/ort_bianbu_rv64_debug/lib",
+        "/builds/compiler/riscv-gnu-toolchain/glibc": "/home/wayne/Workspace/glibc/glibc-2.41"
       },
       "setupCommands": [
         {"text": "-enable-pretty-printing","ignoreFailures": true},
+        {"text": "set sysroot /home/wayne/Workspace/spacemit/spacemit-toolchain-linux-glibc-x86_64-v1.1.2/sysroot","ignoreFailures": false},
         {"text": "set architecture riscv:rv64","ignoreFailures": false},
         {"text": "set auto-solib-add on","ignoreFailures": true},
         {"text": "directory ${workspaceFolder}/onnxruntime"}
@@ -35,17 +37,19 @@
       "cwd": "${workspaceFolder}",
       "stopAtEntry": true,
       "MIMode": "gdb",
-      "miDebuggerPath": "/usr/bin/gdb-multiarch",
+      "miDebuggerPath": "/home/wayne/Workspace/gdb/gdb-16.3/build/riscv64/gdb/gdb",
       "miDebuggerServerAddress": "localhost:41217",
       "preLaunchTask": "rv64-start-gdbserver-yolo",
       "postDebugTask": "rv64-close-debug",
-      "additionalSOLibSearchPath": "${workspaceFolder}/installed/ort_bianbu_rv64_debug/lib:/home/wayne/ort/lib",
+      "additionalSOLibSearchPath": "${workspaceFolder}/installed/ort_bianbu_rv64_debug/lib",
       "sourceFileMap": {
         "/home/wayne/ort/bin": "${workspaceFolder}/installed/ort_bianbu_rv64_debug/bin",
-        "/home/wayne/ort/lib": "${workspaceFolder}/installed/ort_bianbu_rv64_debug/lib"
+        "/home/wayne/ort/lib": "${workspaceFolder}/installed/ort_bianbu_rv64_debug/lib",
+        "/builds/compiler/riscv-gnu-toolchain/glibc": "/home/wayne/Workspace/glibc/glibc-2.41"
       },
       "setupCommands": [
         {"text": "-enable-pretty-printing","ignoreFailures": true},
+        {"text": "set sysroot /home/wayne/Workspace/spacemit/spacemit-toolchain-linux-glibc-x86_64-v1.1.2/sysroot","ignoreFailures": false},
         {"text": "set architecture riscv:rv64","ignoreFailures": false},
         {"text": "set auto-solib-add on","ignoreFailures": true},
         {"text": "directory ${workspaceFolder}/onnxruntime"}
@@ -60,17 +64,19 @@
       "cwd": "${workspaceFolder}",
       "stopAtEntry": true,
       "MIMode": "gdb",
-      "miDebuggerPath": "/usr/bin/gdb-multiarch",
+      "miDebuggerPath": "/home/wayne/Workspace/gdb/gdb-16.3/build/riscv64/gdb/gdb",
       "miDebuggerServerAddress": "localhost:41217",
       "preLaunchTask": "rv64-start-gdbserver-test-all",
       "postDebugTask": "rv64-close-debug",
-      "additionalSOLibSearchPath": "${workspaceFolder}/installed/ort_bianbu_rv64_debug/lib:/home/wayne/ort/lib",
+      "additionalSOLibSearchPath": "${workspaceFolder}/installed/ort_bianbu_rv64_debug/lib",
       "sourceFileMap": {
         "/home/wayne/ort/bin": "${workspaceFolder}/installed/ort_bianbu_rv64_debug/bin",
-        "/home/wayne/ort/lib": "${workspaceFolder}/installed/ort_bianbu_rv64_debug/lib"
+        "/home/wayne/ort/lib": "${workspaceFolder}/installed/ort_bianbu_rv64_debug/lib",
+        "/builds/compiler/riscv-gnu-toolchain/glibc": "/home/wayne/Workspace/glibc/glibc-2.41"
       },
       "setupCommands": [
         {"text": "-enable-pretty-printing","ignoreFailures": true},
+        {"text": "set sysroot /home/wayne/Workspace/spacemit/spacemit-toolchain-linux-glibc-x86_64-v1.1.2/sysroot","ignoreFailures": false},
         {"text": "set architecture riscv:rv64","ignoreFailures": false},
         {"text": "set auto-solib-add on","ignoreFailures": true},
         {"text": "directory ${workspaceFolder}/onnxruntime"}
