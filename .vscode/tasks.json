@@ -26,7 +26,7 @@
         "--build_shared_lib",
         "--riscv_march","rv64gcv_zba_zbb_zbs_zbc",
         "--skip_tests",
-        "--cmake_extra_defines","CMAKE_SKIP_RPATH=ON"
+        "--cmake_extra_defines","CMAKE_SKIP_RPATH=ON;RISCV_USE_CLANG=ON"
       ],
       "problemMatcher": [],
       "presentation": {"reveal": "always", "panel": "shared"}
@@ -63,6 +63,7 @@
         "-DORT_ROOT=${workspaceFolder}",
         "-DRISCV_TOOLCHAIN_ROOT=/home/wayne/Workspace/spacemit/spacemit-toolchain-linux-glibc-x86_64-v1.1.2",
         "-DRISCV_MARCH_FLAGS=-march=rv64gcv",
+        "-DRISCV_USE_CLANG=ON",
         "-DORT_BUILD_DIR=${workspaceFolder}/build/bianbu_riscv64/Debug",
         "-DCMAKE_BUILD_TYPE=Debug"
       ],
@@ -111,12 +112,12 @@
       "label": "rv64-build-deploy",
       "type": "shell",
       "command": "bash",
-      // "dependsOn": [
-      //   "rv64-install-runtime-debug",
-      //   "rv64-install-ort-models",
-      //   "rv64-install-ort-models-assets",
-      //   "rv64-install-tests-into-prefix"
-      // ],
+      "dependsOn": [
+        "rv64-install-runtime-debug",
+        "rv64-install-ort-models",
+        "rv64-install-ort-models-assets",
+        "rv64-install-tests-into-prefix"
+      ],
       "args": [
         "-c",
         "rsync -az --delete installed/ort_bianbu_rv64_debug/ wayne@musepipro:/home/wayne/ort/"
@@ -182,6 +183,24 @@
       "problemMatcher": []
     },
 
+    // Start gdbserver for mlas_rvv_softmax_bench
+    {
+      "label": "rv64-start-gdbserver-mlas-bench",
+      "type": "shell",
+      "command": "ssh",
+      "args": [
+        "-L 41217:localhost:41217",
+        "-o ExitOnForwardFailure=yes",
+        "musepipro",
+        "'cd /home/wayne/ort/bin && LD_LIBRARY_PATH=/home/wayne/ort/lib gdbserver :41217 ./mlas_rvv_softmax_bench --sizes=7,19,32,128,511,1024,4096 --iters=500 --seed=12138'"
+      ],
+      "isBackground": true,
+      "problemMatcher": [{
+        "pattern": [{"regexp": ".","file": 1, "location": 2, "message": 3}],
+        "background": {"activeOnStart": true, "beginsPattern": "Listening on port", "endsPattern": "Listening on port 41217"}
+      }]
+    },
+
     // ===================== OHOS RISC-V64 Remote Debug =====================
     // 1. Build ONNX Runtime (Debug, shared lib)
     {
@@ -195,7 +214,7 @@
         "--config","Debug",
         "--update","--build",
         "--parallel","9",
-        "--cmake_extra_defines","onnxruntime_BUILD_SHARED_LIB=ON"
+        "--cmake_extra_defines","onnxruntime_BUILD_SHARED_LIB=ON OHOS_RISCV_MARCH_FLAGS=-march=rv64gcv"
       ],
       "problemMatcher": [],
       "group": {"kind": "build", "isDefault": true},

@@ -76,6 +76,17 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${_ORT_OHOS_ASM_INCLUDE}")
 # Define OHOS specific macro while preserving Linux code paths
 add_compile_definitions(__OHOS__ ONNX_RUNTIME_OHOS)
 
+# Define ORT_RISCV_VECTOR_ENABLED based on march containing 'v'.
+set(_OHOS_RISCV_HAS_V FALSE)
+if(OHOS_RISCV_MARCH_FLAGS MATCHES "(^|[_,])v([_,]|$)")
+  set(_OHOS_RISCV_HAS_V TRUE)
+endif()
+if(_OHOS_RISCV_HAS_V)
+  add_compile_definitions(ORT_RISCV_VECTOR_ENABLED=1)
+else()
+  add_compile_definitions(ORT_RISCV_VECTOR_ENABLED=0)
+endif()
+
 # Ensure the sysroot is used
 set(CMAKE_SYSROOT "${CMAKE_SYSROOT}")
 

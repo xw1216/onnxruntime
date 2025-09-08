@@ -25,9 +25,7 @@ MlasFlashAttentionThreaded(
     const float* value = args->value;
     float* output = args->output;
 
-#if defined(MLAS_TARGET_AMD64) || defined(MLAS_TARGET_LARCH64)
-    auto&& mlas_platform = GetMlasPlatform();
-#endif
+// Note: platform-specific hooks are accessed via GetMlasPlatform() inline at call sites.
 
     ptrdiff_t q_chunk_count = (q_sequence_length + (q_block_size - 1)) / q_block_size;
 
@@ -97,7 +95,7 @@ MlasFlashAttentionThreaded(
                 float* p = intermediate + irow * row_size_kv_capped;
 
 #if defined(MLAS_TARGET_AMD64) || defined(MLAS_TARGET_LARCH64)
-                float rowmax = mlas_platform.ReduceMaximumF32Kernel(p, row_size_kv_capped);
+                float rowmax = GetMlasPlatform().ReduceMaximumF32Kernel(p, row_size_kv_capped);
 #else
                 float rowmax = MlasReduceMaximumF32Kernel(p, row_size_kv_capped);
 #endif
@@ -106,8 +104,8 @@ MlasFlashAttentionThreaded(
                 negmax = -m[irow];
                 m_diff -= m[irow];  // old - new (less than 0)
 
-#if defined(MLAS_TARGET_AMD64)
-                float rowsum = mlas_platform.ComputeSumExpF32Kernel(p, p, row_size_kv_capped, &negmax);
+#if defined(MLAS_TARGET_AMD64) || defined(MLAS_TARGET_RISCV64)
+                float rowsum = GetMlasPlatform().ComputeSumExpF32Kernel(p, p, row_size_kv_capped, &negmax);
 #else
                 float rowsum = MlasComputeSumExpF32Kernel(p, p, row_size_kv_capped, &negmax);
 #endif

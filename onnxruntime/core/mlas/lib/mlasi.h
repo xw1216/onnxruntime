@@ -72,6 +72,9 @@ Abstract:
 #if defined(__loongarch64)
 #include <lsxintrin.h>
 #endif
+#if defined(__riscv) && defined(__riscv_vector)
+#include <riscv_vector.h>
+#endif
 #if defined(MLAS_TARGET_WASM_SIMD)
 #include <wasm_simd128.h>
 #endif
@@ -940,6 +943,14 @@ extern "C" {
     MLAS_CAST_F16_TO_F32_KERNEL MlasCastF16ToF32KernelNeon;
     MLAS_CAST_F32_TO_F16_KERNEL MlasCastF32ToF16KernelNeon;
 #endif
+
+#if defined(MLAS_TARGET_RISCV64)
+    // RVV-specific softmax helpers
+    MLAS_REDUCE_MAXIMUM_FLOAT_KERNEL MlasReduceMaximumF32KernelRvv;
+    MLAS_COMPUTE_SUMEXP_FLOAT_KERNEL MlasComputeSumExpF32KernelRvv;
+    MLAS_COMPUTE_SOFTMAX_OUTPUT_FLOAT_KERNEL MlasComputeSoftmaxOutputF32KernelRvv;
+    MLAS_COMPUTE_LOGSOFTMAX_OUTPUT_FLOAT_KERNEL MlasComputeLogSoftmaxOutputF32KernelRvv;
+#endif
 }
 
 //
@@ -1186,6 +1197,13 @@ struct MLAS_PLATFORM {
     MLAS_COMPUTE_SOFTMAX_OUTPUT_FLOAT_KERNEL* ComputeSoftmaxOutputF32Kernel;
     MLAS_COMPUTE_LOGSOFTMAX_OUTPUT_FLOAT_KERNEL* ComputeLogSoftmaxOutputF32Kernel;
     uint32_t NchwcBlockSize;
+#endif
+#if defined(MLAS_TARGET_RISCV64)
+    // Softmax-related hooks used by compute paths on RISC-V
+    MLAS_REDUCE_MAXIMUM_FLOAT_KERNEL* ReduceMaximumF32Kernel;
+    MLAS_COMPUTE_SUMEXP_FLOAT_KERNEL* ComputeSumExpF32Kernel;
+    MLAS_COMPUTE_SOFTMAX_OUTPUT_FLOAT_KERNEL* ComputeSoftmaxOutputF32Kernel;
+    MLAS_COMPUTE_LOGSOFTMAX_OUTPUT_FLOAT_KERNEL* ComputeLogSoftmaxOutputF32Kernel;
 #endif
 #if defined(MLAS_TARGET_AMD64_IX86)
     const MLAS_GEMM_QUANT_DISPATCH* GemmU8S8Dispatch;
@@ -1486,6 +1504,7 @@ MlasConvDepthwiseFloat_CHW(
 #endif
 #elif defined(MLAS_TARGET_LARCH64)
 #define MLAS_LSX_INTRINSICS
+#elif defined(MLAS_TARGET_RISCV64)
 #endif
 
 #if defined(MLAS_NEON_INTRINSICS)

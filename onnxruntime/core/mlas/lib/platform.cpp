@@ -220,6 +220,8 @@ MLAS_INTERNAL_DATA MLAS_DECLSPEC_ALIGN(const uint32_t MlasMaskMoveTableLasx[16],
 };
 
 #endif
+
+
 MLAS_PLATFORM::MLAS_PLATFORM(
     void
     )
@@ -693,6 +695,22 @@ Return Value:
     // this->MaximumThreadCount = MLAS_MAXIMUM_THREAD_COUNT;
 
 #endif // MLAS_TARGET_LARCH64
+
+#if defined(MLAS_TARGET_RISCV64)
+    // Prefer RVV-specific kernels when vector extension is available; otherwise keep generic ones.
+#if defined(__riscv_vector)
+    this->ReduceMaximumF32Kernel = MlasReduceMaximumF32KernelRvv;
+    this->ComputeSumExpF32Kernel = MlasComputeSumExpF32KernelRvv;
+    this->ComputeSoftmaxOutputF32Kernel = MlasComputeSoftmaxOutputF32KernelRvv;
+    this->ComputeLogSoftmaxOutputF32Kernel = MlasComputeLogSoftmaxOutputF32KernelRvv;
+#else
+    // Assign baseline scalar kernels as safe fallbacks when RVV isn't available.
+    this->ReduceMaximumF32Kernel = MlasReduceMaximumF32Kernel;
+    this->ComputeSumExpF32Kernel = MlasComputeSumExpF32Kernel;
+    this->ComputeSoftmaxOutputF32Kernel = MlasComputeSoftmaxOutputF32Kernel;
+    this->ComputeLogSoftmaxOutputF32Kernel = MlasComputeLogSoftmaxOutputF32Kernel;
+#endif
+#endif // MLAS_TARGET_RISCV64
 
 }
 
