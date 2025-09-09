@@ -5,6 +5,13 @@
 set(CMAKE_SYSTEM_NAME Linux)
 set(CMAKE_SYSTEM_PROCESSOR riscv64)
 
+# Prevent duplicate side-effects if the toolchain file is processed more than once
+if(DEFINED ORT_RISCV_TOOLCHAIN_APPLIED)
+  message(STATUS "[riscv64.toolchain] Already configured; skipping duplicate include")
+  return()
+endif()
+set(ORT_RISCV_TOOLCHAIN_APPLIED TRUE)
+
 list(APPEND CMAKE_TRY_COMPILE_PLATFORM_VARIABLES RISCV_TOOLCHAIN_ROOT)
 
 if(NOT RISCV_TOOLCHAIN_ROOT)
@@ -65,6 +72,10 @@ else()
   add_compile_definitions(ORT_RISCV_VECTOR_ENABLED=0)
 endif()
 
+# Do not directly append to CMAKE_C_FLAGS/CMAKE_CXX_FLAGS here.
+# Rely on *_FLAGS_INIT to seed the flags exactly once and avoid duplicates
+# when the toolchain file is (re)processed by CMake.
+
 # ABI is fixed to lp64d for this baseline; adjust here if a future need arises.
 set(_RISCV_COMMON_FLAGS "${RISCV_MARCH_FLAGS} -mabi=lp64d -fPIC")
 
@@ -74,6 +85,8 @@ set(CMAKE_CXX_FLAGS_INIT "${_RISCV_COMMON_FLAGS}")
 set(CMAKE_ASM_FLAGS_INIT "${RISCV_MARCH_FLAGS} -mabi=lp64d")
 ## Do not append to CMAKE_C_FLAGS/CMAKE_CXX_FLAGS here to avoid duplicate
 ## occurrences when CMake seeds flags from INIT and later logic appends again.
+
+message(STATUS "[riscv64.toolchain] C/CXX/ASM *_INIT flags set to: ${_RISCV_COMMON_FLAGS}")
 
 set(CMAKE_FIND_ROOT_PATH ${RISCV_TOOLCHAIN_ROOT})
 set(CMAKE_SYSROOT "${RISCV_TOOLCHAIN_ROOT}/sysroot")

@@ -192,7 +192,7 @@
         "-L 41217:localhost:41217",
         "-o ExitOnForwardFailure=yes",
         "musepipro",
-        "'cd /home/wayne/ort/bin && LD_LIBRARY_PATH=/home/wayne/ort/lib gdbserver :41217 ./mlas_rvv_softmax_bench --sizes=7,19,32,128,511,1024,4096 --iters=500 --seed=12138'"
+        "'cd /home/wayne/ort/bin && LD_LIBRARY_PATH=/home/wayne/ort/lib gdbserver :41217 ./mlas_rvv_softmax_bench --sizes=7,128,511,1024,4096 --iters=500 --seed=12138'"
       ],
       "isBackground": true,
       "problemMatcher": [{
@@ -210,7 +210,7 @@
         "-L 41217:localhost:41217",
         "-o ExitOnForwardFailure=yes",
         "musepipro",
-        "'cd /home/wayne/ort/bin && LD_LIBRARY_PATH=/home/wayne/ort/lib gdbserver :41217 ./mlas_rvv_sgemm_bench --shapes=6x6x6,12x8x13,64x64x64,128x256x64,255x127x63 --iters=8 --seed=55533'"
+        "'cd /home/wayne/ort/bin && LD_LIBRARY_PATH=/home/wayne/ort/lib gdbserver :41217 ./mlas_rvv_sgemm_bench --shapes=3x3x3,12x24x13,64x64x64,128x256x64,255x127x63 --iters=8 --seed=55533'"
       ],
       "isBackground": true,
       "problemMatcher": [{
@@ -228,7 +228,7 @@
         "-L 41217:localhost:41217",
         "-o ExitOnForwardFailure=yes",
         "musepipro",
-        "'cd /home/wayne/ort/bin && LD_LIBRARY_PATH=/home/wayne/ort/lib gdbserver :41217 ./mlas_rvv_activations_bench --size=104857 --iters=5 --seed=42'"
+        "'cd /home/wayne/ort/bin && LD_LIBRARY_PATH=/home/wayne/ort/lib gdbserver :41217 ./mlas_rvv_activations_bench --size=104857 --iters=5 --seed=42 --topk=8'"
       ],
       "isBackground": true,
       "problemMatcher": [{

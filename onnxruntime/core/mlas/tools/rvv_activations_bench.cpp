@@ -65,6 +65,7 @@ struct Options {
   size_t size{static_cast<size_t>(1) << 20}; // default: 1M elements
   int iters{200};
   uint32_t seed{42};
+  int topk{16};
 };
 
 static Options parse_args(int argc, char** argv) {
@@ -78,14 +79,21 @@ static Options parse_args(int argc, char** argv) {
       opt.iters = std::max(1, std::atoi(arg + 8));
     } else if (std::strncmp(arg, "--seed=", 7) == 0) {
       opt.seed = static_cast<uint32_t>(std::strtoul(arg + 7, nullptr, 10));
+    } else if (std::strncmp(arg, "--topk=", 7) == 0) {
+      opt.topk = std::max(1, std::atoi(arg + 7));
     } else if (std::strcmp(arg, "--help") == 0 || std::strcmp(arg, "-h") == 0) {
       std::puts("Usage: mlas_rvv_activations_bench [--size=N] [--iters=I] [--seed=S]\n"
-                "       Positional fallback: N I S");
+                "                     [--topk=K]\n"
+                "       Positional fallback: N I S K");
     } else {
-      // Positional fallback for compatibility
+      // Positional fallback for compatibility (numbers only). Unknown options (starting with '-') are ignored.
+      if (arg[0] == '-') {
+        continue;
+      }
       if (pos == 0) opt.size = std::strtoull(arg, nullptr, 10);
       else if (pos == 1) opt.iters = std::max(1, std::atoi(arg));
       else if (pos == 2) opt.seed = static_cast<uint32_t>(std::strtoul(arg, nullptr, 10));
+      else if (pos == 3) opt.topk = std::max(1, std::atoi(arg));
       ++pos;
     }
   }
@@ -97,9 +105,13 @@ int main(int argc, char** argv) {
   const size_t N = opt.size;
   const int iters = opt.iters;
   const uint32_t seed = opt.seed;
+  const int topk = opt.topk;
 
   std::printf("MLAS RVV Activations Regression & Micro-benchmark\n");
-  std::printf("size=%zu  iters=%d  seed=%u\n\n", N, iters, seed);
+  std::printf("size=%zu  iters=%d  seed=%u  topk=%d\n\n", N, iters, seed, topk);
+  if (N == 0) {
+    std::fprintf(stderr, "[WARN] size=0. Please check arguments. Expected --size=N (or positional N).\n");
+  }
 
   std::vector<float> x(N), y1(N), y2(N);
   fill(x, seed);
@@ -118,13 +130,13 @@ int main(int argc, char** argv) {
   std::puts("== Correctness (max abs diff) ==");
   exp_ref(x.data(), y1.data(), N); exp_opt(x.data(), y2.data(), N);
   std::printf("exp (mlas vs rvv): %.9g\n", max_abs_diff(y1, y2));
-  print_topk_diffs("exp", y1, y2, 16);
+  print_topk_diffs("exp", y1, y2, topk);
   log_ref(x.data(), y1.data(), N); log_opt(x.data(), y2.data(), N);
   std::printf("logistic (mlas vs rvv): %.9g\n", max_abs_diff(y1, y2));
-  print_topk_diffs("logistic", y1, y2, 16);
+  print_topk_diffs("logistic", y1, y2, topk);
   tanh_ref(x.data(), y1.data(), N); tanh_opt(x.data(), y2.data(), N);
   std::printf("tanh (mlas vs rvv): %.9g\n", max_abs_diff(y1, y2));
-  print_topk_diffs("tanh", y1, y2, 16);
+  print_topk_diffs("tanh", y1, y2, topk);
 
   std::puts("\n== Throughput (avg ms, lower is better) ==");
   double exp_m = bench_kernel_ms(exp_ref, x, y1, iters);

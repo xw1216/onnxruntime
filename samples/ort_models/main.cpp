@@ -16,6 +16,8 @@
 #include <filesystem>
 #include <fstream>
 #include <algorithm>
+#include <chrono>
+#include <numeric>
 #include <cmath>
 #include <cctype>
 #include <onnxruntime_cxx_api.h>
@@ -32,8 +34,10 @@ static void Usage(){
   std::cout << "用法: ort_models --model <resnet|yolo|all> --image <path>\n";
   std::cout << "       [--labels imagenet_file] [--yolo-labels coco_file]\n";
   std::cout << "       [--yolo-thresh v] [--yolo-nms v]\n";
+  std::cout << "       [--warmup N] [--repeat M]\n";
   std::cout << "说明: 默认会在可执行目录下寻找 models/ 与 labels/ \n";
   std::cout << "      --yolo-thresh 置信度阈值(默认0.25)  --yolo-nms NMS IoU 阈值(默认0.45)\n";
+  std::cout << "      计时默认开启；--warmup 预热次数（默认0），--repeat 计时次数（默认1）\n";
 }
 // 获取当前可执行文件所在目录 (Linux/OHOS 使用 /proc/self/exe)
 static std::string GetExecutableDir(){
@@ -159,15 +163,38 @@ static void PrintPreview(const float* d, size_t n){ size_t k=std::min<size_t>(8,
 enum class ModelKind { ResNet, YOLO };
 struct ModelSpec { std::string path; ModelKind kind; };
 
-static void RunResNet(Ort::Session& sess, Ort::MemoryInfo& mem, Ort::AllocatorWithDefaultOptions& alloc, const std::string& image, const std::vector<std::string>& labels){
+static void PrintLatencyStats(const char* tag, const std::vector<double>& ms){
+  if(ms.empty()) return;
+  double sum = std::accumulate(ms.begin(), ms.end(), 0.0);
+  double avg = sum / ms.size();
+  auto [min_it, max_it] = std::minmax_element(ms.begin(), ms.end());
+  std::cout << "[TIME] " << tag << ": min=" << *min_it << " ms, avg=" << avg << " ms, max=" << *max_it << " ms (n=" << ms.size() << ")\n";
+}
+
+static void RunResNet(Ort::Session& sess, Ort::MemoryInfo& mem, Ort::AllocatorWithDefaultOptions& alloc,
+                      const std::string& image, const std::vector<std::string>& labels,
+                      int warmup, int repeat){
   std::vector<int64_t> shape{1,3,224,224}; std::vector<float> pixels; bool ok=false; int ow=224, oh=224;
   if(!image.empty() && fs::exists(image)) ok = LoadImageToCHWFloat(image,224,224,pixels,true,&ow,&oh);
   if(!ok){ pixels.assign((size_t)3*224*224, 1.0f); std::cout << "[ResNet18] 警告: 使用填充伪图像\n"; }
   auto input = Ort::Value::CreateTensor<float>(mem, pixels.data(), pixels.size(), shape.data(), shape.size());
   auto in_name = sess.GetInputNameAllocated(0, alloc); auto out_name = sess.GetOutputNameAllocated(0, alloc);
   const char* ins[] = { in_name.get() }; const char* outs[] = { out_name.get() };
-  auto out = sess.Run(Ort::RunOptions{}, ins, &input, 1, outs, 1);
-  auto& t = out.front(); float* logits = t.GetTensorMutableData<float>();
+  // Warmup
+  for(int i=0;i<warmup;i++){ (void)sess.Run(Ort::RunOptions{}, ins, &input, 1, outs, 1); }
+  // Timed runs (always on)
+  if(repeat<=0) repeat=1;
+  std::vector<double> times_ms; times_ms.reserve(repeat);
+  Ort::Value last_out{nullptr};
+  for(int i=0;i<repeat; ++i){
+    auto t0 = std::chrono::steady_clock::now();
+    auto out = sess.Run(Ort::RunOptions{}, ins, &input, 1, outs, 1);
+    auto t1 = std::chrono::steady_clock::now();
+    times_ms.push_back(std::chrono::duration<double, std::milli>(t1-t0).count());
+    last_out = std::move(out.front());
+  }
+  PrintLatencyStats("ResNet18 Inference", times_ms);
+  auto& t = last_out; float* logits = t.GetTensorMutableData<float>();
   size_t total=1; for(auto d: t.GetTensorTypeAndShapeInfo().GetShape()) if(d>0) total *= (size_t)d;
   std::vector<Ranked> top5; TopK(logits,total,5,top5);
   std::cout << "[ResNet18] Top-5:\n";
@@ -176,15 +203,30 @@ static void RunResNet(Ort::Session& sess, Ort::MemoryInfo& mem, Ort::AllocatorWi
 
 static void RunYOLO(Ort::Session& sess, Ort::MemoryInfo& mem, Ort::AllocatorWithDefaultOptions& alloc,
                     const std::string& image, float thresh, float nms_thresh,
-                    const std::vector<std::string>& yolo_labels){
+                    const std::vector<std::string>& yolo_labels,
+                    int warmup, int repeat){
   std::vector<int64_t> shape{1,3,640,640}; std::vector<float> pixels; bool ok=false; int orig_w=640, orig_h=640;
   if(!image.empty() && fs::exists(image)) ok = LoadImageToCHWFloat(image,640,640,pixels,false,&orig_w,&orig_h);
   if(!ok){ pixels.assign((size_t)3*640*640, 0.0f); std::cout << "[YOLO] 警告: 使用填充伪图像\n"; orig_w=640; orig_h=640; }
   auto input = Ort::Value::CreateTensor<float>(mem, pixels.data(), pixels.size(), shape.data(), shape.size());
   auto in_name = sess.GetInputNameAllocated(0, alloc); auto out_name = sess.GetOutputNameAllocated(0, alloc);
   const char* ins[] = { in_name.get() }; const char* outs[] = { out_name.get() };
-  auto results = sess.Run(Ort::RunOptions{}, ins, &input, 1, outs, 1);
-  auto& t = results.front(); auto info = t.GetTensorTypeAndShapeInfo(); auto shape_out = info.GetShape();
+  // Warmup
+  for(int i=0;i<warmup;i++){ (void)sess.Run(Ort::RunOptions{}, ins, &input, 1, outs, 1); }
+  // Timed runs (always on)
+  if(repeat<=0) repeat=1;
+  std::vector<double> times_ms; times_ms.reserve(repeat);
+  Ort::Value last_out{nullptr};
+  for(int i=0;i<repeat; ++i){
+    auto t0 = std::chrono::steady_clock::now();
+    auto out = sess.Run(Ort::RunOptions{}, ins, &input, 1, outs, 1);
+    auto t1 = std::chrono::steady_clock::now();
+    times_ms.push_back(std::chrono::duration<double, std::milli>(t1-t0).count());
+    last_out = std::move(out.front());
+  }
+  PrintLatencyStats("YOLO Inference", times_ms);
+
+  auto& t = last_out; auto info = t.GetTensorTypeAndShapeInfo(); auto shape_out = info.GetShape();
   const float* data = t.GetTensorData<float>();
   if(shape_out.size()==3){
     int N = (int)shape_out[1]; int A = (int)shape_out[2];
@@ -219,6 +261,7 @@ static void RunYOLO(Ort::Session& sess, Ort::MemoryInfo& mem, Ort::AllocatorWith
 int main(int argc, char** argv){
   try {
   std::string select="all", image_path;
+  int warmup=0, repeat=0;
   // 运行时默认: 与可执行同目录的 labels/*.txt
   std::string exec_dir = GetExecutableDir();
   // 资源根: <prefix>/assets (可执行在 <prefix>/bin)
@@ -239,7 +282,9 @@ int main(int argc, char** argv){
   if(a=="--yolo-labels" && i+1<argc){ yolo_labels_path=argv[++i]; } else
   if(a=="--yolo-thresh" && i+1<argc){ yolo_thresh = std::stof(argv[++i]); } else
   if(a=="--yolo-nms" && i+1<argc){ yolo_nms = std::stof(argv[++i]); } else
-  if(a=="--asset-dir" && i+1<argc){ asset_root = argv[++i]; }
+  if(a=="--asset-dir" && i+1<argc){ asset_root = argv[++i]; } else
+  if(a=="--warmup" && i+1<argc){ warmup = std::stoi(argv[++i]); } else
+  if(a=="--repeat" && i+1<argc){ repeat = std::stoi(argv[++i]); }
       else if(a=="-h"||a=="--help"){ Usage(); return 0; }
     }
 
@@ -266,8 +311,8 @@ int main(int argc, char** argv){
       std::cout << "\n[LOAD] "<<m.path<<"\n";
       Ort::Session sess(env, m.path.c_str(), opt);
       switch(m.kind){
-        case ModelKind::ResNet: RunResNet(sess, mem, alloc, image_path, labels); break;
-  case ModelKind::YOLO: RunYOLO(sess, mem, alloc, image_path, yolo_thresh, yolo_nms, yolo_labels); break;
+        case ModelKind::ResNet: RunResNet(sess, mem, alloc, image_path, labels, warmup, repeat); break;
+        case ModelKind::YOLO: RunYOLO(sess, mem, alloc, image_path, yolo_thresh, yolo_nms, yolo_labels, warmup, repeat); break;
       }
     }
   } catch(const Ort::Exception& e){ std::cerr << "ORT Exception: "<<e.what()<<"\n"; return 1; }
