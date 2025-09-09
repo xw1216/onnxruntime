@@ -1063,6 +1063,13 @@ Return Value:
 
 #if (defined(MLAS_TARGET_AMD64_IX86) || defined(MLAS_TARGET_POWER) || defined(MLAS_TARGET_LARCH64)) && !defined(FORCE_GENERIC_ALGORITHMS)
         RowsHandled = GetMlasPlatform().GemmFloatKernel(A, B, C, CountK, CountM, CountN, lda, ldc, alpha, ZeroMode);
+#elif defined(MLAS_TARGET_RISCV64) && defined(__riscv_vector) && !defined(FORCE_GENERIC_ALGORITHMS)
+        // On RISCV64 with RVV, call RVV kernels without ZeroMode parameter like scalar path
+        if (ZeroMode) {
+            RowsHandled = MlasSgemmKernelZeroRvv(A, B, C, CountK, CountM, CountN, lda, ldc, alpha);
+        } else {
+            RowsHandled = MlasSgemmKernelAddRvv(A, B, C, CountK, CountM, CountN, lda, ldc, alpha);
+        }
 #else
         if (ZeroMode) {
             RowsHandled = MlasSgemmKernelZero(A, B, C, CountK, CountM, CountN, lda, ldc, alpha);

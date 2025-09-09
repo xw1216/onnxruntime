@@ -697,14 +697,21 @@ Return Value:
 #endif // MLAS_TARGET_LARCH64
 
 #if defined(MLAS_TARGET_RISCV64)
-    // Prefer RVV-specific kernels when vector extension is available; otherwise keep generic ones.
+    // Prefer RVV-specific helpers when vector extension is available.
 #if defined(__riscv_vector)
+    // SGEMM on RISCV64 uses explicit RVV Zero/Add kernels in sgemm.cpp; no platform GemmFloatKernel assignment here.
+    this->ComputeExpF32Kernel = MlasComputeExpF32KernelRvv;
+    this->LogisticKernelRoutine = MlasLogisticKernelRvv;
+    this->TanhKernelRoutine = MlasTanhKernelRvv;
     this->ReduceMaximumF32Kernel = MlasReduceMaximumF32KernelRvv;
     this->ComputeSumExpF32Kernel = MlasComputeSumExpF32KernelRvv;
     this->ComputeSoftmaxOutputF32Kernel = MlasComputeSoftmaxOutputF32KernelRvv;
     this->ComputeLogSoftmaxOutputF32Kernel = MlasComputeLogSoftmaxOutputF32KernelRvv;
 #else
     // Assign baseline scalar kernels as safe fallbacks when RVV isn't available.
+    this->ComputeExpF32Kernel = MlasComputeExpF32Kernel;
+    this->LogisticKernelRoutine = MlasLogisticKernel;
+    this->TanhKernelRoutine = MlasTanhKernel;
     this->ReduceMaximumF32Kernel = MlasReduceMaximumF32Kernel;
     this->ComputeSumExpF32Kernel = MlasComputeSumExpF32Kernel;
     this->ComputeSoftmaxOutputF32Kernel = MlasComputeSoftmaxOutputF32Kernel;

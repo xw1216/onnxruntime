@@ -945,11 +945,18 @@ extern "C" {
 #endif
 
 #if defined(MLAS_TARGET_RISCV64)
+    // RVV-specific SGEMM Zero/Add entry points for RISCV64 (no ZeroMode in typedef here)
+    MLAS_GEMM_FLOAT_KERNEL MlasSgemmKernelZeroRvv;
+    MLAS_GEMM_FLOAT_KERNEL MlasSgemmKernelAddRvv;
     // RVV-specific softmax helpers
     MLAS_REDUCE_MAXIMUM_FLOAT_KERNEL MlasReduceMaximumF32KernelRvv;
     MLAS_COMPUTE_SUMEXP_FLOAT_KERNEL MlasComputeSumExpF32KernelRvv;
     MLAS_COMPUTE_SOFTMAX_OUTPUT_FLOAT_KERNEL MlasComputeSoftmaxOutputF32KernelRvv;
     MLAS_COMPUTE_LOGSOFTMAX_OUTPUT_FLOAT_KERNEL MlasComputeLogSoftmaxOutputF32KernelRvv;
+    // RVV-specific activations
+    MLAS_COMPUTE_UNARY_FLOAT_KERNEL MlasComputeExpF32KernelRvv;
+    MLAS_COMPUTE_UNARY_FLOAT_KERNEL MlasLogisticKernelRvv;
+    MLAS_COMPUTE_UNARY_FLOAT_KERNEL MlasTanhKernelRvv;
 #endif
 }
 
@@ -1199,6 +1206,14 @@ struct MLAS_PLATFORM {
     uint32_t NchwcBlockSize;
 #endif
 #if defined(MLAS_TARGET_RISCV64)
+    // RISC-V specific hooks
+    // Optional: SGEMM kernel entry (currently not used by generic SGEMM loop,
+    // but set in platform init for potential future use and benches)
+    MLAS_GEMM_FLOAT_KERNEL* GemmFloatKernel;
+    // Activations
+    MLAS_COMPUTE_UNARY_FLOAT_KERNEL* ComputeExpF32Kernel;
+    MLAS_COMPUTE_UNARY_FLOAT_KERNEL* LogisticKernelRoutine;
+    MLAS_COMPUTE_UNARY_FLOAT_KERNEL* TanhKernelRoutine;
     // Softmax-related hooks used by compute paths on RISC-V
     MLAS_REDUCE_MAXIMUM_FLOAT_KERNEL* ReduceMaximumF32Kernel;
     MLAS_COMPUTE_SUMEXP_FLOAT_KERNEL* ComputeSumExpF32Kernel;

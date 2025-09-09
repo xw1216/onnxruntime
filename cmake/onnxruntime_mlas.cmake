@@ -753,6 +753,8 @@ endif()
         set(mlas_platform_srcs
           ${mlas_platform_srcs}
           ${MLAS_SRC_DIR}/riscv64/softmax_kernel_rvv.cpp
+          ${MLAS_SRC_DIR}/riscv64/activations_rvv.cpp
+          ${MLAS_SRC_DIR}/riscv64/SgemmKernelRvv.cpp
           # Ensure scalar SGEMM kernels are available on RISCV64
           ${MLAS_SRC_DIR}/scalar/SgemmKernelScalar.cpp
         )
@@ -789,6 +791,34 @@ if(RISCV64)
     target_link_libraries(mlas_rvv_softmax_bench PRIVATE atomic)
   endif()
   install(TARGETS mlas_rvv_softmax_bench RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+  # RVV SGEMM regression and micro-benchmark tool
+  onnxruntime_add_executable(mlas_rvv_sgemm_bench
+  ${MLAS_ROOT}/tools/rvv_sgemm_bench.cpp)
+  target_include_directories(mlas_rvv_sgemm_bench PRIVATE ${MLAS_INC_DIR} ${MLAS_SRC_DIR} ${ONNXRUNTIME_ROOT}/include)
+  onnxruntime_add_include_to_target(mlas_rvv_sgemm_bench ${GSL_TARGET})
+  target_link_libraries(mlas_rvv_sgemm_bench PRIVATE ${ONNXRUNTIME_MLAS_LIBS} onnxruntime_common Threads::Threads)
+  if(NOT WIN32)
+    target_link_libraries(mlas_rvv_sgemm_bench PRIVATE ${CMAKE_DL_LIBS})
+  endif()
+  if (onnxruntime_LINK_LIBATOMIC)
+    target_link_libraries(mlas_rvv_sgemm_bench PRIVATE atomic)
+  endif()
+  install(TARGETS mlas_rvv_sgemm_bench RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+  # RVV activations regression/micro-benchmark tool
+  onnxruntime_add_executable(mlas_rvv_activations_bench
+  ${MLAS_ROOT}/tools/rvv_activations_bench.cpp)
+  target_include_directories(mlas_rvv_activations_bench PRIVATE ${MLAS_INC_DIR} ${MLAS_SRC_DIR} ${ONNXRUNTIME_ROOT}/include)
+  onnxruntime_add_include_to_target(mlas_rvv_activations_bench ${GSL_TARGET})
+  target_link_libraries(mlas_rvv_activations_bench PRIVATE ${ONNXRUNTIME_MLAS_LIBS} onnxruntime_common Threads::Threads)
+  if(NOT WIN32)
+    target_link_libraries(mlas_rvv_activations_bench PRIVATE ${CMAKE_DL_LIBS})
+  endif()
+  if (onnxruntime_LINK_LIBATOMIC)
+    target_link_libraries(mlas_rvv_activations_bench PRIVATE atomic)
+  endif()
+  install(TARGETS mlas_rvv_activations_bench RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif()
 
 foreach(mlas_target ${ONNXRUNTIME_MLAS_LIBS})
