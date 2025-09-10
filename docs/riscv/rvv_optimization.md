@@ -200,8 +200,19 @@ RVV 内核均位于 `onnxruntime/core/mlas/lib/riscv64/`，通过 `GetMlasPlatfo
   - `onnxruntime/core/mlas/tools/rvv_activations_bench.cpp`（支持 `--topk`）
 
 ---
+## 8. 常见问题 (FAQ)
+| 问题 | 处理 |
+|------|------|
+| 编译器不识别 `rv64gcv` | 工具链版本过旧，需升级支持 RVV1.0 的 GCC/Clang |
+| 链接阶段找不到 libstdc++ | 确认 `RISCV_TOOLCHAIN_ROOT/sysroot/usr/lib` 在链接器默认搜索路径或手动加 `-L` |
+| qemu 运行段错误 | 确认 qemu 版本支持所用的 ISA 扩展；若使用 RVV 标志，需 qemu 新版本 |
+| 开启了 RVV 但 bench 没有生成 | CMake 在未检测到 `v` 时会跳过 RVV bench；检查 `--riscv_march`/`--enable_riscv_v` 是否生效，或查看构建日志中的 RVV 检测信息 |
+| bench 显示回退 | 表示当前构建/运行环境未启用 RVV 或平台不支持，将自动回退标量路径 |
+| 性能不达预期 | 仅部分算子已有 RVV 优化，且对尺寸较小的输入，向量化收益可能不明显；请参考基准工具参数与“计算思路”说明 |
 
-## 8. 展望
+---
+
+## 9. 展望
 
 如需扩展内核或接入新的 RVV 算子，建议沿用：
 - 标量参考实现 + RVV 内核并行开发；
