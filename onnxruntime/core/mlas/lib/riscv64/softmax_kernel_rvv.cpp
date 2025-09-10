@@ -59,12 +59,12 @@ MlasReduceMaximumF32KernelRvv(
         size_t vl = __riscv_vsetvl_e32m1(N - i);
         vfloat32m1_t v = __riscv_vle32_v_f32m1(Input + i, vl);
 
-        // 把 NaN 映射为 -inf，这样参与 max 归约时相当于被忽略。
+    // Map NaN to -inf so it is ignored during max reduction.
         vbool32_t m_not_nan = __riscv_vmfeq_vv_f32m1_b32(v, v, vl); // x==x 仅对非 NaN 为真
         vfloat32m1_t vneg_inf = __riscv_vfmv_v_f_f32m1(neg_inf, vl);
         vfloat32m1_t vclean = __riscv_vmerge_vvm_f32m1(vneg_inf, v, m_not_nan, vl);
 
-        // 用 1-lane 累加器做向量归约为标量最大值
+    // Use a 1-lane accumulator to reduce to a scalar maximum
     size_t vl1 = __riscv_vsetvl_e32m1(1);
         vfloat32m1_t vacc = __riscv_vfmv_v_f_f32m1(max_scalar, vl1);
         vfloat32m1_t vmax1 = __riscv_vfredmax_vs_f32m1_f32m1(vacc, vclean, vl);
@@ -72,7 +72,7 @@ MlasReduceMaximumF32KernelRvv(
 
         i += vl;
     }
-    // 若全为 NaN，max_scalar 保持为 -inf，和通用实现一致。
+    // If all values are NaN, result remains -inf, matching the generic implementation.
     return max_scalar;
 }
 

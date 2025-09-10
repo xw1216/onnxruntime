@@ -44,18 +44,18 @@ target_link_libraries(ort_models PRIVATE ${ORT_LIB} dl pthread m)
 
 set_target_properties(ort_models PROPERTIES
   BUILD_WITH_INSTALL_RPATH ON
-  # 让可执行优先搜索本目录以及上级 lib 目录，避免命中系统同名旧版本
+  # Ensure the executable searches its own dir and ../lib first to avoid picking system copies
   INSTALL_RPATH "$ORIGIN:$ORIGIN/../lib"
   BUILD_RPATH "\$ORIGIN:\$ORIGIN/../lib"
 )
 
 install(TARGETS ort_models RUNTIME DESTINATION bin)
-# 不再重复拷贝 libonnxruntime.so, 运行时通过 LD_LIBRARY_PATH 指向 runtime 安装目录的 lib
+# Do not copy libonnxruntime.so again; runtime finds it via LD_LIBRARY_PATH
 
-# 统一资源放入安装前缀根目录下的 assets/ 子目录，以便部署脚本简单打包且与可执行分离
+# Put assets under the install prefix root (assets/) so scripts can package and keep binaries separate
 set(ORT_MODELS_ASSET_DIR assets)
 
-# 模型、标签、示例图片
+# Models, labels, sample images
 file(GLOB MODEL_FILES "${CMAKE_SOURCE_DIR}/models/*.onnx")
 if(MODEL_FILES)
   install(FILES ${MODEL_FILES} DESTINATION ${ORT_MODELS_ASSET_DIR}/models)

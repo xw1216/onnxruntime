@@ -52,7 +52,7 @@ namespace {
 void MLASCALL MlasComputeExpF32KernelRvv(const float* Input, float* Output, size_t N) {
     if (N == 0) return;
 
-    // 每次调用内复用临时缓冲，避免循环体内频繁分配。
+    // Reuse temporary buffers per call to avoid allocations inside the main loop.
     const size_t vlmax = __riscv_vsetvlmax_e32m1();
     std::vector<float> tmpf(vlmax);
     std::vector<int32_t> tmpi(vlmax);
@@ -180,8 +180,8 @@ void MLASCALL MlasTanhKernelRvv(const float* Input, float* Output, size_t N) {
         v = clamp_non_nan(v, LowerRange, UpperRange, vl);
         vfloat32m1_t v2 = __riscv_vfmul_vv_f32m1(v, v, vl);
 
-        // 对于 float32，当 |x| >= ~8.664339 时，tanh(x) 已经在舍入后等于 ±1.0f。
-        // 提前饱和可提升精度（与参考的“接近 1”行为一致）并避免不必要计算。
+    // For float32, when |x| >= ~8.664339, tanh(x) rounds to ±1.0f.
+    // Early saturation improves accuracy and avoids unnecessary computation.
         constexpr float kTanhSat = 8.664339f; // ~atanh(1 - 0.5*2^-23)
         vfloat32m1_t vabs = __riscv_vfabs_v_f32m1(v, vl);
         vbool32_t m_sat = __riscv_vmfgt_vf_f32m1_b32(vabs, kTanhSat, vl);
@@ -202,7 +202,7 @@ void MLASCALL MlasTanhKernelRvv(const float* Input, float* Output, size_t N) {
         q = __riscv_vfmul_vv_f32m1(q, v2, vl); q = __riscv_vfadd_vf_f32m1(q, b0, vl);
 
         vfloat32m1_t y = __riscv_vfdiv_vv_f32m1(p, q, vl);
-        // 饱和分支：sign(v) * 1.0f
+    // Saturation branch: sign(v) * 1.0f
         vfloat32m1_t vone = __riscv_vfmv_v_f_f32m1(1.0f, vl);
         vbool32_t m_neg = __riscv_vmflt_vf_f32m1_b32(v, 0.0f, vl);
         vfloat32m1_t vsign = __riscv_vmerge_vvm_f32m1(vone, __riscv_vfneg_v_f32m1(vone, vl), m_neg, vl);

@@ -1,13 +1,13 @@
 // ==============================================
-// 多模型真实图片推理示例 (仅 ResNet18 + YOLO)
-// - ResNet18: 读取图片, resize 到 224x224, 归一化 + ImageNet 均值方差, 输出 top-5 标签
-// - YOLO: 读取图片, resize 到 640x640(简单拉伸), 解析第一输出张量, 打印若干检测框
-// 依赖: third_party/stb_image.h, stb_image_resize2.h, labels/imagenet_classes.txt, labels/coco_classes.txt
-// 命令行:
+// Multi-model image inference demo (ResNet18 + YOLO)
+// - ResNet18: load image, resize to 224x224, normalize with ImageNet mean/std, print top-5 labels
+// - YOLO: load image, resize to 640x640 (simple stretch), parse first output tensor, print detection boxes
+// Dependencies: third_party/stb_image.h, stb_image_resize2.h, labels/imagenet_classes.txt, labels/coco_classes.txt
+// Command line:
 //   --model <resnet|yolo|embed|all>
-//   --image <image_path> (对 resnet / yolo 有效)
-//   --labels <imagenet_label_file> (默认 ./third_party/imagenet_classes.txt)
-//   --yolo-thresh <float> (默认 0.25)
+//   --image <image_path> (used by resnet / yolo)
+//   --labels <imagenet_label_file> (default ./third_party/imagenet_classes.txt)
+//   --yolo-thresh <float> (default 0.25)
 // ==============================================
 
 #include <iostream>
@@ -21,7 +21,7 @@
 #include <cmath>
 #include <cctype>
 #include <onnxruntime_cxx_api.h>
-#include <unistd.h> // readlink 获取可执行路径
+#include <unistd.h> // readlink to get executable path
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "third_party/stb_image.h"
@@ -31,15 +31,15 @@
 namespace fs = std::filesystem;
 
 static void Usage(){
-  std::cout << "用法: ort_models --model <resnet|yolo|all> --image <path>\n";
+  std::cout << "Usage: ort_models --model <resnet|yolo|all> --image <path>\n";
   std::cout << "       [--labels imagenet_file] [--yolo-labels coco_file]\n";
   std::cout << "       [--yolo-thresh v] [--yolo-nms v]\n";
   std::cout << "       [--warmup N] [--repeat M]\n";
-  std::cout << "说明: 默认会在可执行目录下寻找 models/ 与 labels/ \n";
-  std::cout << "      --yolo-thresh 置信度阈值(默认0.25)  --yolo-nms NMS IoU 阈值(默认0.45)\n";
-  std::cout << "      计时默认开启；--warmup 预热次数（默认0），--repeat 计时次数（默认1）\n";
+  std::cout << "Notes: by default looks for models/ and labels/ relative to executable directory.\n";
+  std::cout << "       --yolo-thresh confidence threshold (default 0.25)  --yolo-nms NMS IoU threshold (default 0.45)\n";
+  std::cout << "       Timing always enabled; --warmup warmup runs (default 0), --repeat timed runs (default 1)\n";
 }
-// 获取当前可执行文件所在目录 (Linux/OHOS 使用 /proc/self/exe)
+// Get directory of current executable (Linux/OHOS uses /proc/self/exe)
 static std::string GetExecutableDir(){
   char buf[4096];
   ssize_t n = readlink("/proc/self/exe", buf, sizeof(buf)-1);
@@ -53,15 +53,15 @@ static std::string GetExecutableDir(){
 }
 static void ToLower(std::string& s){ for(auto& c:s) c=(char)std::tolower((unsigned char)c); }
 
-// 读取全部行
+// Read all non-empty lines
 static std::vector<std::string> ReadLines(const std::string& file){
   std::vector<std::string> lines; std::ifstream fin(file); std::string line; while(std::getline(fin,line)) if(!line.empty()) lines.push_back(line); return lines; }
 
-// 简单 resize + 转 float (CHW)
+// Simple resize + convert to float (CHW)
 static bool LoadImageToCHWFloat(const std::string& path, int target_w, int target_h, std::vector<float>& out, bool normalize, int* orig_w, int* orig_h){
   int w,h,c; unsigned char* data = stbi_load(path.c_str(), &w,&h,&c, 3); if(!data) return false; c=3; if(orig_w) *orig_w=w; if(orig_h) *orig_h=h;
   std::vector<unsigned char> resized((size_t)target_w*target_h*c);
-  // 使用 stb resize, 输入 stride= w*c, 输出 stride= target_w*c
+  // Use stb resize, input stride = w*c, output stride = target_w*c
   if(w!=target_w || h!=target_h){
     stbir_resize_uint8_linear(data, w, h, w*c, resized.data(), target_w, target_h, target_w*c, STBIR_RGB);
   } else {
@@ -69,7 +69,7 @@ static bool LoadImageToCHWFloat(const std::string& path, int target_w, int targe
   }
   stbi_image_free(data);
   out.assign((size_t)c*target_w*target_h, 0.f);
-  // 转 CHW + 0..1
+  // Convert to CHW layout and scale to [0,1]
   for(int yy=0; yy<target_h; ++yy){
     for(int xx=0; xx<target_w; ++xx){
       size_t src_i = (size_t)(yy*target_w + xx)*c;
@@ -94,7 +94,7 @@ static bool LoadImageToCHWFloat(const std::string& path, int target_w, int targe
 struct Ranked { int idx; float val; };
 static void TopK(const float* logits, size_t n, int k, std::vector<Ranked>& out){
   out.clear(); out.reserve(n);
-  // 数值稳定: 找max
+    // Numerically stable: subtract max
   float m = -1e30f; for(size_t i=0;i<n;++i) if(logits[i]>m) m=logits[i];
   std::vector<float> probs(n); float sum=0.f; for(size_t i=0;i<n;++i){ probs[i]=std::exp(logits[i]-m); sum += probs[i]; }
   for(size_t i=0;i<n;++i){ probs[i]/=sum; }
@@ -103,13 +103,13 @@ static void TopK(const float* logits, size_t n, int k, std::vector<Ranked>& out)
   if((int)out.size()>k) out.resize(k);
 }
 
-// YOLO 解析: 支持两种格式
-// 1) [1,N,A], A>=6, 解释为 (cx,cy,w,h,obj,cls_probs...)
-// 2) [1,N,6], 解释为 (x1,y1,x2,y2,score,class_id) —— 用户当前模型: shape=[1,300,6]
+// YOLO parsing: supports two formats
+// 1) [1,N,A], A>=6 interpreted as (cx,cy,w,h,obj,cls_probs...)
+// 2) [1,N,6] interpreted as (x1,y1,x2,y2,score,class_id) -- current user model: shape=[1,300,6]
 struct YoloDet { float score; float x1,y1,x2,y2; int cls; float obj; };
 static std::vector<YoloDet> ParseYolo(const float* data, int N, int A, float thresh){
   std::vector<YoloDet> dets; if(A<6) return dets;
-  // 格式2: 直接框 + score + class
+  // Format 2: direct (x1,y1,x2,y2,score,class)
   if(A==6){
     for(int i=0;i<N;++i){
       const float* p = data + (size_t)i*A;
@@ -121,7 +121,7 @@ static std::vector<YoloDet> ParseYolo(const float* data, int N, int A, float thr
     if(dets.size()>50) dets.resize(50);
     return dets;
   }
-  // 格式1: 转换中心点+宽高+obj+类别概率
+  // Format 1: (cx,cy,w,h,obj,class_probs...)
   int num_cls = A-5;
   for(int i=0;i<N;++i){
     const float* p = data + (size_t)i*A;
@@ -136,7 +136,7 @@ static std::vector<YoloDet> ParseYolo(const float* data, int N, int A, float thr
   return dets;
 }
 
-// 计算 IoU
+// Compute IoU
 static float IoU(const YoloDet& a, const YoloDet& b){
   float xx1 = std::max(a.x1,b.x1); float yy1 = std::max(a.y1,b.y1);
   float xx2 = std::min(a.x2,b.x2); float yy2 = std::min(a.y2,b.y2);
@@ -157,7 +157,7 @@ static std::vector<YoloDet> NMS(const std::vector<YoloDet>& dets, float iou_thre
   return keep;
 }
 
-// 打印前几个 float (调试)
+// Print first few floats (debug)
 static void PrintPreview(const float* d, size_t n){ size_t k=std::min<size_t>(8,n); for(size_t i=0;i<k;++i){ if(i) std::cout<<' '; std::cout<<d[i]; } if(n>k) std::cout<<" ..."; std::cout<<"\n"; }
 
 enum class ModelKind { ResNet, YOLO };
@@ -176,7 +176,7 @@ static void RunResNet(Ort::Session& sess, Ort::MemoryInfo& mem, Ort::AllocatorWi
                       int warmup, int repeat){
   std::vector<int64_t> shape{1,3,224,224}; std::vector<float> pixels; bool ok=false; int ow=224, oh=224;
   if(!image.empty() && fs::exists(image)) ok = LoadImageToCHWFloat(image,224,224,pixels,true,&ow,&oh);
-  if(!ok){ pixels.assign((size_t)3*224*224, 1.0f); std::cout << "[ResNet18] 警告: 使用填充伪图像\n"; }
+  if(!ok){ pixels.assign((size_t)3*224*224, 1.0f); std::cout << "[ResNet18] Warning: using padded fake image\n"; }
   auto input = Ort::Value::CreateTensor<float>(mem, pixels.data(), pixels.size(), shape.data(), shape.size());
   auto in_name = sess.GetInputNameAllocated(0, alloc); auto out_name = sess.GetOutputNameAllocated(0, alloc);
   const char* ins[] = { in_name.get() }; const char* outs[] = { out_name.get() };
@@ -207,7 +207,7 @@ static void RunYOLO(Ort::Session& sess, Ort::MemoryInfo& mem, Ort::AllocatorWith
                     int warmup, int repeat){
   std::vector<int64_t> shape{1,3,640,640}; std::vector<float> pixels; bool ok=false; int orig_w=640, orig_h=640;
   if(!image.empty() && fs::exists(image)) ok = LoadImageToCHWFloat(image,640,640,pixels,false,&orig_w,&orig_h);
-  if(!ok){ pixels.assign((size_t)3*640*640, 0.0f); std::cout << "[YOLO] 警告: 使用填充伪图像\n"; orig_w=640; orig_h=640; }
+  if(!ok){ pixels.assign((size_t)3*640*640, 0.0f); std::cout << "[YOLO] Warning: using padded fake image\n"; orig_w=640; orig_h=640; }
   auto input = Ort::Value::CreateTensor<float>(mem, pixels.data(), pixels.size(), shape.data(), shape.size());
   auto in_name = sess.GetInputNameAllocated(0, alloc); auto out_name = sess.GetOutputNameAllocated(0, alloc);
   const char* ins[] = { in_name.get() }; const char* outs[] = { out_name.get() };
@@ -231,7 +231,7 @@ static void RunYOLO(Ort::Session& sess, Ort::MemoryInfo& mem, Ort::AllocatorWith
   if(shape_out.size()==3){
     int N = (int)shape_out[1]; int A = (int)shape_out[2];
     auto dets_raw = ParseYolo(data,N,A,thresh);
-    // 反缩放回原图坐标 + 剪裁
+  // Rescale boxes back to original image coordinates and clamp
     float sx = static_cast<float>(orig_w)/640.f;
     float sy = static_cast<float>(orig_h)/640.f;
     for(auto& d: dets_raw){
@@ -241,7 +241,7 @@ static void RunYOLO(Ort::Session& sess, Ort::MemoryInfo& mem, Ort::AllocatorWith
       d.y2 = std::clamp(d.y2 * sy, 0.f, (float)(orig_h-1));
     }
     auto dets = NMS(dets_raw, nms_thresh);
-    std::cout << "[YOLO] 原始检测="<<dets_raw.size()<<", NMS后="<<dets.size()<<" (conf>="<<thresh<<", nms="<<nms_thresh<<")\n";
+  std::cout << "[YOLO] raw_dets="<<dets_raw.size()<<", after_NMS="<<dets.size()<<" (conf>="<<thresh<<", nms="<<nms_thresh<<")\n";
     int show = std::min<size_t>(dets.size(), 10);
     for(int i=0;i<show;++i){
       auto& d=dets[i];
@@ -252,9 +252,9 @@ static void RunYOLO(Ort::Session& sess, Ort::MemoryInfo& mem, Ort::AllocatorWith
                 << " conf="<<d.score
                 << " box(xyxy)=["<<d.x1<<","<<d.y1<<","<<d.x2<<","<<d.y2<<"]\n";
     }
-    if(dets.empty()) { std::cout << "  (无满足阈值的检测, 原始输出预览:) "; PrintPreview(data, std::min(32, N*A)); }
+  if(dets.empty()) { std::cout << "  (no detection above threshold, preview raw:) "; PrintPreview(data, std::min(32, N*A)); }
   } else {
-    std::cout << "[YOLO] 未识别的输出形状, 仅预览前几个值: "; PrintPreview(data, 32);
+  std::cout << "[YOLO] Unrecognized output shape, preview first values: "; PrintPreview(data, 32);
   }
 }
 
@@ -262,15 +262,15 @@ int main(int argc, char** argv){
   try {
   std::string select="all", image_path;
   int warmup=0, repeat=0;
-  // 运行时默认: 与可执行同目录的 labels/*.txt
+  // Runtime default: labels/*.txt next to executable
   std::string exec_dir = GetExecutableDir();
-  // 资源根: <prefix>/assets (可执行在 <prefix>/bin)
+  // Resource root: <prefix>/assets (executable in <prefix>/bin)
   std::string default_asset_root = (fs::path(exec_dir).parent_path()/"assets").string();
-  // 允许环境变量覆盖
+  // Allow environment override
   if(const char* envp = std::getenv("ORT_MODELS_ASSETS")){
     default_asset_root = envp;
   }
-  std::string asset_root = default_asset_root; // 可被 --asset-dir 覆盖
+  std::string asset_root = default_asset_root; // Can be overridden by --asset-dir
   std::string labels_path = (fs::path(asset_root)/"labels"/"imagenet_classes.txt").string();
   std::string yolo_labels_path = (fs::path(asset_root)/"labels"/"coco_classes.txt").string();
   float yolo_thresh = 0.25f; float yolo_nms = 0.45f;
@@ -296,9 +296,9 @@ int main(int argc, char** argv){
       {model_dir+"/yolo10s.onnx", ModelKind::YOLO}
     };
   std::vector<std::string> labels = fs::exists(labels_path)? ReadLines(labels_path) : std::vector<std::string>{};
-  if(labels.empty()) std::cout << "[ResNet18] 警告: 标签文件缺失或为空: "<<labels_path<<"\n";
+  if(labels.empty()) std::cout << "[ResNet18] Warning: label file missing or empty: "<<labels_path<<"\n";
   std::vector<std::string> yolo_labels = fs::exists(yolo_labels_path)? ReadLines(yolo_labels_path) : std::vector<std::string>{};
-  if(yolo_labels.empty()) std::cout << "[YOLO] 警告: COCO 标签文件缺失或为空: "<<yolo_labels_path<<" (将仅输出类别编号)\n";
+  if(yolo_labels.empty()) std::cout << "[YOLO] Warning: COCO label file missing or empty: "<<yolo_labels_path<<" (will output class index only)\n";
 
     Ort::AllocatorWithDefaultOptions alloc; auto mem = Ort::MemoryInfo::CreateCpu(OrtAllocatorType::OrtArenaAllocator, OrtMemTypeDefault);
 
@@ -307,7 +307,7 @@ int main(int argc, char** argv){
         (select=="resnet" && m.kind==ModelKind::ResNet) ||
         (select=="yolo" && m.kind==ModelKind::YOLO);
       if(!choose) continue;
-      if(!fs::exists(m.path)){ std::cerr << "[SKIP] 缺少模型: "<<m.path<<"\n"; continue; }
+  if(!fs::exists(m.path)){ std::cerr << "[SKIP] model missing: "<<m.path<<"\n"; continue; }
       std::cout << "\n[LOAD] "<<m.path<<"\n";
       Ort::Session sess(env, m.path.c_str(), opt);
       switch(m.kind){

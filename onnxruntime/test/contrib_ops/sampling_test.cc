@@ -94,14 +94,14 @@ TEST(SamplingTest, Gpt2Sampling_GPU) {
   ASSERT_EQ(expected_output_shape, result_ts.GetShape());
   const auto* result_vals = sequences.GetTensorData<int32_t>();
   auto result_span = gsl::make_span(result_vals, expected_output.size());
-  // 始终打印实际序列，方便在新平台采集 expected
+  // Always print actual sequence to help capture expected output on new platforms
   printf("Actual GPT2 sequence (%zu): {", result_span.size());
   for (size_t i = 0; i < result_span.size(); ++i) {
     if (i) printf(", ");
     printf("%d", result_span[i]);
   }
   printf("}\n");
-  // 若不相等，打印前若干差异索引
+  // If mismatch, print first several differing indices
   if (!std::equal(expected_output.cbegin(), expected_output.cend(), result_span.begin(), result_span.end())) {
   printf("First diffs (index: expected != actual): ");
     int printed = 0;
@@ -128,9 +128,9 @@ TEST(SamplingTest, Gpt2Sampling_CPU) {
   std::vector<int32_t> min_length{1};
   std::vector<float> repetition_penalty{1.0f};
 
-  // 平台相关期望输出：std::default_random_engine 行为不同
+  // Platform-specific expected output: std::default_random_engine behavior differs
 #ifdef __OHOS__
-  // 来自实际运行 (OHOS riscv64)
+  // Captured from actual run (OHOS riscv64)
   std::vector<int32_t> expected_output{
       0, 0, 0, 0, 0, 52, 195, 731, 321, 301, 734, 620, 76, 390, 800,
       41, 554, 74, 622, 206, 222, 75, 223, 221, 198, 224, 572, 896, 717, 524,

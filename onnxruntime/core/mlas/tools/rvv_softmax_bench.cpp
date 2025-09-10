@@ -90,7 +90,7 @@ static Options parse_args(int argc, char** argv) {
 
 static void run_case(size_t D, const Options& opt) {
   std::vector<float> input(D), out_std(D), out_rvv(D);
-  const size_t kPrintThreshold = 32; // 当尺寸较小时打印详细数值
+  const size_t kPrintThreshold = 32; // For small sizes print detailed values
   float max_std = 0.0f, sum_std = 0.0f;
   float max_rvv = 0.0f, sum_rvv = 0.0f;
   fill_data(input, opt.with_nan, opt.seed + static_cast<uint32_t>(D));
@@ -141,7 +141,7 @@ static void run_case(size_t D, const Options& opt) {
 #if defined(__riscv) && defined(__riscv_vector)
   Metrics m = compare_arrays(out_std.data(), out_rvv.data(), D);
   std::printf("D=%zu  max_abs_err=%.3e  max_rel_err=%.3e\n", D, m.max_abs_err, m.max_rel_err);
-  // 小尺寸时打印详细对比：max/sum 以及逐元素
+  // For small sizes print detailed comparison: max/sum and element-wise values
   if (D <= kPrintThreshold) {
     std::printf("  max(std)=%.9e  max(rvv)=%.9e  delta=%.3e\n", max_std, max_rvv, std::fabs(max_std - max_rvv));
     std::printf("  sum(std)=%.9e  sum(rvv)=%.9e  delta=%.3e\n", sum_std, sum_rvv, std::fabs(sum_std - sum_rvv));

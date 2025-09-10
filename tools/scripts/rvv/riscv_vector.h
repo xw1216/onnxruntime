@@ -1,1 +1,0 @@
-/home/wayne/Workspace/spacemit/spacemit-toolchain-linux-glibc-x86_64-v1.1.2/lib/clang/19/include/riscv_vector.h
